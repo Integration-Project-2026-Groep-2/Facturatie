@@ -25,6 +25,7 @@ cd FOSSBilling
 ```
 
 - Create `.env` in **project root** and copy credentials from Teams.
+- Create `compose.yml` in **project root** and copy file from Teams.
 - Create `config.php` in **`src`** folder and copy file from Teams.
 
 <br>
