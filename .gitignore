@@ -1,0 +1,22 @@
+vendor/
+/src/config.php
+!/src/library/FOSSBilling/Config.php
+db
+.env
+compose.yml
+
+# Cache and logs - environment-specific, generated at runtime
+src/data/cache/
+src/data/log/
+src/data/uploads/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS files
+Thumbs.db
