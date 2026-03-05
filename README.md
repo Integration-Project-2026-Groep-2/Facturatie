@@ -42,7 +42,7 @@ docker compose ps
 ```
 
 - You should see 4 services running: web, app, db, rabbitmq.
-- **Wait until app container has finished installing dependencies** (check logs with `docker compose logs -f app`).
+- **Wait until app container has finished installing dependencies** (this can take a few minutes). Check logs with `docker compose logs -f app`.
 - Open `http://localhost:8080`.
 
 <br>
