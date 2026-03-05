@@ -103,9 +103,9 @@ class Service implements InjectionAwareInterface
 
     public function getAdminsCount()
     {
-        $sql = 'SELECT COUNT(*) FROM admin WHERE 1';
+        $sql = 'SELECT COUNT(*) FROM admin WHERE role != :role';
 
-        return $this->di['db']->getCell($sql);
+        return $this->di['db']->getCell($sql, [':role' => \Model_Admin::ROLE_CRON]);
     }
 
     public function setPermissions($member_id, $array)

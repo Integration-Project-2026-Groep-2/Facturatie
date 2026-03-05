@@ -28,7 +28,8 @@ class Guest extends \Api_Abstract
      */
     public function create($data)
     {
-        $allow = (!is_countable($this->di['db']->findOne('Admin', '1=1')) || count($this->di['db']->findOne('Admin', '1=1')) == 0);
+        $adminCount = (int) $this->di['db']->getCell('SELECT COUNT(*) FROM admin WHERE role != :role', [':role' => \Model_Admin::ROLE_CRON]);
+        $allow = ($adminCount === 0);
         if (!$allow) {
             throw new \FOSSBilling\InformationException('Administrator account already exists', null, 55);
         }
