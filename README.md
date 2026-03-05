@@ -21,7 +21,7 @@ Docker Desktop (Win/Mac) or Docker Engine (Linux) running on your machine.
 
 ```bash
 git clone https://github.com/Integration-Project-2026-Groep-2/Facturatie.git
-cd FOSSBilling
+cd Facturatie
 ```
 
 - Create `.env` in **project root** and copy credentials from Teams.
