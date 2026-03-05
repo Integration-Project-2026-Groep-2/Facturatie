@@ -1,22 +1,16 @@
 {
-  "entrypoints": {
-    "huraga": {
-      "css": [
-        "/themes/huraga/build/css/huraga-bundle.c8d5ac.css"
-      ],
-      "js": [
-        "/themes/huraga/build/js/huraga-bundle.a8d174.js"
-      ]
+    "entrypoints": {
+        "huraga": {
+            "css": ["/themes/huraga/build/css/huraga-bundle.c8d5ac.css"],
+            "js": ["/themes/huraga/build/js/huraga-bundle.a8d174.js"]
+        },
+        "markdown": {
+            "css": ["/themes/huraga/build/css/markdown-bundle.b155af.css"]
+        }
     },
-    "markdown": {
-      "css": [
-        "/themes/huraga/build/css/markdown-bundle.b155af.css"
-      ]
+    "integrity": {
+        "/themes/huraga/build/css/huraga-bundle.c8d5ac.css": "sha384-FMVI0GUwElhVHy0nQi2d8LgejwuhGWWCpNLoVunaX5wTGNPQGM4jKa3U8JhkH4A2",
+        "/themes/huraga/build/js/huraga-bundle.a8d174.js": "sha384-LmRY/ZBkhZv5oCZq0g1hjbXsCQxFLHZjJnmUPzzXWbImnJfLUzFOLXEmj4xqCmzU",
+        "/themes/huraga/build/css/markdown-bundle.b155af.css": "sha384-0VxaSK/kq4SR3DCTxoxt26B9AIta9iUkscmHqE/16/D+Eoi6Cyf9Fb0a3PcxCaTx"
     }
-  },
-  "integrity": {
-    "/themes/huraga/build/css/huraga-bundle.c8d5ac.css": "sha384-HtzyezRKXg8Wb+yBsATbXLDz1nD1Mu9PZ3+r4cdeaip2nb2eddstQfWAUvl3xFve",
-    "/themes/huraga/build/js/huraga-bundle.a8d174.js": "sha384-LmRY/ZBkhZv5oCZq0g1hjbXsCQxFLHZjJnmUPzzXWbImnJfLUzFOLXEmj4xqCmzU",
-    "/themes/huraga/build/css/markdown-bundle.b155af.css": "sha384-0VxaSK/kq4SR3DCTxoxt26B9AIta9iUkscmHqE/16/D+Eoi6Cyf9Fb0a3PcxCaTx"
-  }
 }

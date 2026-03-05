@@ -24,9 +24,11 @@ git clone https://github.com/Integration-Project-2026-Groep-2/Facturatie.git
 cd Facturatie
 ```
 
-- Create `.env` in **project root** and copy credentials from Teams.
-- Create `compose.yml` in **project root** and copy file from Teams.
-- Create `config.php` in **`src`** folder and copy file from Teams.
+Copy the following files from `Teams` (Shared) to the specified locations:
+
+- `.env` in **project root**.
+- `compose.yml` in **project root**.
+- `config.php` in **`src`** folder.
 
 <br>
 
