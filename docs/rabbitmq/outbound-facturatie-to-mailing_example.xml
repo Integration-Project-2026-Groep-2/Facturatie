@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<InvoiceEmailRequest version="1.0">
+  <Message>
+    <MessageId>88be6d11-3b7d-46d8-b016-896d67fa39af</MessageId>
+    <CorrelationId>event-2026-shift-001</CorrelationId>
+    <Timestamp>2026-03-16T10:16:12Z</Timestamp>
+    <SourceSystem>facturatie</SourceSystem>
+    <TargetSystem>mailing</TargetSystem>
+    <Routing>
+      <Exchange>ehb.events</Exchange>
+      <RoutingKey>mailing.invoice.send</RoutingKey>
+      <Queue>mailing.invoice.sendgrid</Queue>
+    </Routing>
+  </Message>
+
+  <Invoice>
+    <InvoiceId>INV-2026-000845</InvoiceId>
+    <InvoiceNumber>2026-845</InvoiceNumber>
+    <InvoiceDate>2026-05-15</InvoiceDate>
+    <DueDate>2026-06-14</DueDate>
+    <Currency>EUR</Currency>
+    <SubtotalExclVat>70.00</SubtotalExclVat>
+    <VatAmount>12.00</VatAmount>
+    <TotalInclVat>82.00</TotalInclVat>
+    <PdfUrl>https://facturatie.ehb.local/invoices/INV-2026-000845.pdf</PdfUrl>
+  </Invoice>
+
+  <Company>
+    <CompanyId>COMP-1042</CompanyId>
+    <CompanyName>PixelForge BV</CompanyName>
+    <VatNumber>BE0123456789</VatNumber>
+    <BillingEmail>finance@pixelforge.be</BillingEmail>
+  </Company>
+
+  <SendGrid>
+    <TemplateId>d-1234567890abcdef1234567890abcdef</TemplateId>
+    <From>
+      <Email>billing@desideriushogeschool.be</Email>
+      <Name>Desideriushogeschool Facturatie</Name>
+    </From>
+    <To>
+      <Email>finance@pixelforge.be</Email>
+      <Name>PixelForge BV Finance</Name>
+    </To>
+    <DynamicTemplateData>
+      <event_name>Shiftfestival 2026</event_name>
+      <company_name>PixelForge BV</company_name>
+      <invoice_number>2026-845</invoice_number>
+      <invoice_date>2026-05-15</invoice_date>
+      <due_date>2026-06-14</due_date>
+      <currency>EUR</currency>
+      <subtotal_excl_vat>70.00</subtotal_excl_vat>
+      <vat_amount>12.00</vat_amount>
+      <total_incl_vat>82.00</total_incl_vat>
+      <invoice_pdf_url>https://facturatie.ehb.local/invoices/INV-2026-000845.pdf</invoice_pdf_url>
+    </DynamicTemplateData>
+  </SendGrid>
+
+  <Trace>
+    <GeneratedFromQueueMessageId>0dfe2b57-8a22-4f23-9f56-6b8b94b9b831</GeneratedFromQueueMessageId>
+    <InvoiceStatus>created</InvoiceStatus>
+  </Trace>
+</InvoiceEmailRequest>

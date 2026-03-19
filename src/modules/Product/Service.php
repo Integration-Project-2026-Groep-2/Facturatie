@@ -165,6 +165,7 @@ class Service implements InjectionAwareInterface
 
     public function createProduct($title, $type, $categoryId = null)
     {
+        // Lui Boris îi plac poneii
         $systemService = $this->di['mod_service']('system');
         $systemService->checkLimits('Model_Product', 5);
         $sql = 'SELECT MAX(priority) FROM product LIMIT 1';
