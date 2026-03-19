@@ -12,6 +12,7 @@
 namespace Box\Mod\Invoice;
 
 use Dompdf\Dompdf;
+use FOSSBilling\RabbitMQService;
 use FOSSBilling\Environment;
 use FOSSBilling\InformationException;
 use FOSSBilling\InjectionAwareInterface;
@@ -303,6 +304,26 @@ class Service implements InjectionAwareInterface
         return true;
     }
 
+    private static function buildInvoiceFinalizedXml(array $invoice, \Pimple\Container $di): string
+    {
+        $recipientEmail = $invoice['buyer']['email'] ?? ($invoice['client']['email'] ?? '');
+        $invoiceNumber = $invoice['serie_nr'] ?: (string) $invoice['id'];
+        $pdfUrl = $di['tools']->url('invoice/pdf/' . $invoice['hash']);
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $root = $dom->createElement('invoice_finalized');
+
+        $root->appendChild($dom->createElement('invoiceNumber', $invoiceNumber));
+        $root->appendChild($dom->createElement('recipientEmail', $recipientEmail));
+        $root->appendChild($dom->createElement('pdfUrl', $pdfUrl));
+        $root->appendChild($dom->createElement('totalAmount', number_format((float) $invoice['total'], 2, '.', '')));
+        $root->appendChild($dom->createElement('type', 'invoice_finalized'));
+
+        $dom->appendChild($root);
+
+        return $dom->saveXML();
+    }
+
     public static function onAfterAdminInvoiceApprove(\Box_Event $event)
     {
         $params = $event->getParameters();
@@ -318,6 +339,16 @@ class Service implements InjectionAwareInterface
             $email['invoice'] = $invoice;
             $emailService = $di['mod_service']('Email');
             $emailService->sendTemplate($email);
+        } catch (\Exception $exc) {
+            error_log($exc->getMessage());
+        }
+
+        try {
+            $invoiceModel = $di['db']->load('Invoice', $params['id']);
+            $invoice = $service->toApiArray($invoiceModel, ['id' => $params['id']]);
+
+            $rabbitMQService = new RabbitMQService();
+            $rabbitMQService->publishXML('facturatie.invoice.finalized', self::buildInvoiceFinalizedXml($invoice, $di));
         } catch (\Exception $exc) {
             error_log($exc->getMessage());
         }
