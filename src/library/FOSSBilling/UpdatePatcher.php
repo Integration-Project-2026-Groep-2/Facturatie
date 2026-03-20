@@ -410,6 +410,78 @@ class UpdatePatcher implements InjectionAwareInterface
                 ];
                 $this->executeFileActions($fileActions);
             },
+            44 => function (): void {
+                // Introduce dedicated company entity and link clients to company via company_id.
+                $q = 'CREATE TABLE company (
+                    id char(36) NOT NULL,
+                    name varchar(255) NOT NULL,
+                    vat_number varchar(32) DEFAULT NULL,
+                    company_number varchar(64) DEFAULT NULL,
+                    email varchar(190) DEFAULT NULL,
+                    phone varchar(64) DEFAULT NULL,
+                    street varchar(255) DEFAULT NULL,
+                    house_number varchar(64) DEFAULT NULL,
+                    city varchar(100) DEFAULT NULL,
+                    state varchar(100) DEFAULT NULL,
+                    postal_code varchar(32) DEFAULT NULL,
+                    country varchar(2) DEFAULT NULL,
+                    created_at datetime DEFAULT NULL,
+                    updated_at datetime DEFAULT NULL,
+                    PRIMARY KEY (id),
+                    UNIQUE KEY company_vat_unique (vat_number)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;';
+                $this->executeSql($q);
+
+                $q = 'ALTER TABLE client ADD COLUMN company_id char(36) DEFAULT NULL;';
+                $this->executeSql($q);
+
+                $q = 'ALTER TABLE client ADD KEY company_id_idx (company_id);';
+                $this->executeSql($q);
+
+                // Backfill companies from existing client profile company fields.
+                    $q = "INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, state, postal_code, country, created_at, updated_at)
+                        SELECT UUID(), MAX(c.company), c.company_vat, MAX(c.company_number), MAX(c.email), MAX(TRIM(CONCAT(COALESCE(c.phone_cc, ''), ' ', COALESCE(c.phone, '')))), MAX(c.address_1), MAX(c.address_2), MAX(c.city), MAX(c.state), MAX(c.postcode), MAX(c.country), NOW(), NOW()
+                      FROM client c
+                      WHERE c.company_vat IS NOT NULL
+                        AND c.company_vat <> ''
+                        AND c.company IS NOT NULL
+                        AND c.company <> ''
+                        GROUP BY c.company_vat";
+                $this->executeSql($q);
+
+                    $q = "INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, state, postal_code, country, created_at, updated_at)
+                        SELECT UUID(), c.company, NULL, c.company_number, c.email, TRIM(CONCAT(COALESCE(c.phone_cc, ''), ' ', COALESCE(c.phone, ''))), c.address_1, c.address_2, c.city, c.state, c.postcode, c.country, NOW(), NOW()
+                      FROM client c
+                      WHERE (c.company_vat IS NULL OR c.company_vat = '')
+                        AND c.company IS NOT NULL
+                        AND c.company <> ''
+                        GROUP BY c.company, c.company_number, c.email, c.phone_cc, c.phone, c.address_1, c.address_2, c.city, c.state, c.postcode, c.country";
+                $this->executeSql($q);
+
+                $q = "UPDATE client c
+                      LEFT JOIN company cv ON cv.vat_number = c.company_vat
+                      LEFT JOIN company cn ON cn.vat_number IS NULL
+                                            AND cn.name = c.company
+                                            AND (cn.company_number <=> c.company_number)
+                                            AND (cn.email <=> c.email)
+                                            AND (cn.street <=> c.address_1)
+                                            AND (cn.house_number <=> c.address_2)
+                                            AND (cn.city <=> c.city)
+                                            AND (cn.state <=> c.state)
+                                            AND (cn.postal_code <=> c.postcode)
+                                            AND (cn.country <=> c.country)
+                      SET c.company_id = COALESCE(cv.id, cn.id)
+                      WHERE c.company_id IS NULL";
+                $this->executeSql($q);
+
+                $q = 'ALTER TABLE client
+                      ADD CONSTRAINT fk_client_company
+                      FOREIGN KEY (company_id)
+                      REFERENCES company(id)
+                      ON DELETE SET NULL
+                      ON UPDATE CASCADE;';
+                $this->executeSql($q);
+            },
         ];
         ksort($patches, SORT_NATURAL);
 

@@ -72,6 +72,16 @@
                             <td><strong class="text-success">{{ client.company|default('-') }}</strong></td>
                         </tr>
                         <tr>
+                            <td class="text-end">{{ 'Linked company entity'|trans }}:</td>
+                            <td>
+                                {% if client.company_id %}
+                                    <span class="badge bg-success me-1"></span>{{ client.company_id }}
+                                {% else %}
+                                    <span class="badge bg-secondary me-1"></span>{{ 'Not linked'|trans }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
                             <td class="text-end">{{ 'Email'|trans }}:</td>
                             <td>{{ client.email }}</td>
                         </tr>
@@ -261,6 +271,11 @@
                     <div class="mb-3 row" id="company-details">
                         <label class="form-label col-3 col-form-label">{{ 'Company details'|trans }}:</label>
                         <div class="col">
+                            <div class="row mb-3">
+                                <div class="col">
+                                    {{ mf.selectbox('company_id', admin.client_company_get_pairs, client.company_id, 0, 'Select existing company (optional)'|trans) }}
+                                </div>
+                            </div>
                             <div class="row">
                                 <div class="col">
                                     <input class="form-control" type="text" name="company" value="{{ client.company }}" placeholder="{{ 'Company name'|trans }}">
@@ -272,6 +287,26 @@
                                     <input class="form-control" type="text" name="company_vat" value="{{ client.company_vat }}" placeholder="{{ 'Company VAT number'|trans }}">
                                 </div>
                             </div>
+                            <div class="row mt-3">
+                                <div class="col">
+                                    <input class="form-control" type="email" name="company_email" value="{{ client.company_email|default(client.email) }}" placeholder="{{ 'Company email'|trans }}">
+                                </div>
+                                <div class="col">
+                                    <input class="form-control" type="text" name="company_phone" value="{{ client.company_phone|default('') }}" placeholder="{{ 'Company phone'|trans }}">
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col">
+                                    <input class="form-control" type="text" name="street" value="{{ client.company_street|default(client.address_1) }}" placeholder="{{ 'Street'|trans }}">
+                                </div>
+                                <div class="col">
+                                    <input class="form-control" type="text" name="house_number" value="{{ client.company_house_number|default(client.address_2) }}" placeholder="{{ 'House number'|trans }}">
+                                </div>
+                                <div class="col">
+                                    <input class="form-control" type="text" name="postal_code" value="{{ client.company_postal_code|default(client.postcode) }}" placeholder="{{ 'Postal code'|trans }}">
+                                </div>
+                            </div>
+                            <small class="form-hint">{{ 'Select an existing company to link this user, or fill in details to create/update a company entity.'|trans }}</small>
                         </div>
                     </div>
                     <button class="btn btn-primary w-100" type="submit">{{ 'Update'|trans }}</button>
@@ -576,6 +611,17 @@
                         </svg>
                         {{ 'New invoice'|trans }}
                     </a>
+                    {% if client.company_id %}
+                    <a class="btn btn-outline-primary api-link"
+                        href="{{ 'api/admin/invoice/generate_company_summary'|link({ 'client_id': client.id, 'CSRFToken': CSRFToken }) }}"
+                        data-api-jsonp="onAfterInvoicePrepared"
+                        data-api-confirm="{{ 'Generate a company summary invoice with all users linked to this company?'|trans }}">
+                        <svg class="icon">
+                            <use xlink:href="#plus" />
+                        </svg>
+                        {{ 'New company summary invoice'|trans }}
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>

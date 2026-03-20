@@ -137,6 +137,8 @@ class Service implements InjectionAwareInterface
             $client->email = $email;
         }
 
+        $clientService = $clientService ?? $this->di['mod_service']('client');
+
         $client->first_name = $data['first_name'] ?? $client->first_name;
         $client->last_name = $data['last_name'] ?? $client->last_name;
         $client->gender = $data['gender'] ?? $client->gender;
@@ -182,6 +184,8 @@ class Service implements InjectionAwareInterface
         $client->custom_8 = $data['custom_8'] ?? $client->custom_8;
         $client->custom_9 = $data['custom_9'] ?? $client->custom_9;
         $client->custom_10 = $data['custom_10'] ?? $client->custom_10;
+
+        $clientService->syncClientCompany($client, $data);
 
         $client->updated_at = date('Y-m-d H:i:s');
 

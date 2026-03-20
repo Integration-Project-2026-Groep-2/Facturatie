@@ -12,6 +12,7 @@
 namespace Box\Mod\Client;
 
 use FOSSBilling\InjectionAwareInterface;
+use Ramsey\Uuid\Uuid;
 
 class Service implements InjectionAwareInterface
 {
@@ -324,6 +325,75 @@ class Service implements InjectionAwareInterface
         return $this->di['db']->getAssoc($sql);
     }
 
+    public function getCompanyPairs(): array
+    {
+        try {
+            return $this->di['db']->getAssoc('SELECT id, name FROM company ORDER BY name ASC');
+        } catch (\Exception) {
+            return [];
+        }
+    }
+
+    public function getCompanyById(string $companyId): ?array
+    {
+        $row = $this->di['db']->getRow('SELECT * FROM company WHERE id = :id LIMIT 1', [':id' => $companyId]);
+
+        return $row ?: null;
+    }
+
+    public function syncClientCompany(\Model_Client $client, array $data = []): void
+    {
+        if (!$this->shouldSyncClientCompany($data)) {
+            return;
+        }
+
+        try {
+            $companyData = $this->buildCompanyData($data, $client);
+            $requestedCompanyId = trim((string) ($data['company_id'] ?? ''));
+
+            if ($requestedCompanyId !== '') {
+                $company = $this->getCompanyById($requestedCompanyId);
+                if (!$company) {
+                    throw new \FOSSBilling\Exception('Selected company was not found');
+                }
+
+                if ($this->hasCompanyIdentity($companyData)) {
+                    $company = $this->upsertCompany($requestedCompanyId, $companyData);
+                }
+                $this->applyCompanyToClient($client, $company);
+
+                return;
+            }
+
+            if (!$this->hasCompanyIdentity($companyData)) {
+                if (array_key_exists('company_id', $data)) {
+                    $client->company_id = null;
+                    $client->company = null;
+                    $client->company_vat = null;
+                    $client->company_number = null;
+                }
+
+                return;
+            }
+
+            $existingCompanyId = !empty($client->company_id) ? (string) $client->company_id : null;
+            $companyId = $this->findExistingCompanyId($companyData, $existingCompanyId);
+            $company = $this->upsertCompany($companyId ?? $this->generateCompanyId(), $companyData);
+            $this->applyCompanyToClient($client, $company);
+        } catch (\Exception) {
+            // Keep legacy behavior in case company migration is not yet applied.
+            if (array_key_exists('company', $data)) {
+                $client->company = $data['company'] ?: null;
+            }
+            if (array_key_exists('company_vat', $data)) {
+                $client->company_vat = $data['company_vat'] ?: null;
+            }
+            if (array_key_exists('company_number', $data)) {
+                $client->company_number = $data['company_number'] ?: null;
+            }
+        }
+    }
+
     public function clientAlreadyExists($email)
     {
         $client = $this->di['db']->findOne('Client', 'email = :email ', [':email' => $email]);
@@ -345,9 +415,15 @@ class Service implements InjectionAwareInterface
             'email_approved' => $model->email_approved,
             'type' => $model->type,
             'group_id' => $model->client_group_id,
+            'company_id' => $model->company_id,
             'company' => $model->company,
             'company_vat' => $model->company_vat,
             'company_number' => $model->company_number,
+            'company_email' => null,
+            'company_phone' => null,
+            'company_street' => null,
+            'company_house_number' => null,
+            'company_postal_code' => null,
             'first_name' => $model->first_name,
             'last_name' => $model->last_name,
             'gender' => $model->gender,
@@ -364,7 +440,27 @@ class Service implements InjectionAwareInterface
             'notes' => $model->notes,
             'created_at' => $model->created_at,
             'document_nr' => $model->document_nr,
+            'linked_company' => null,
         ];
+
+        if (!empty($model->company_id)) {
+            $company = $this->getCompanyById((string) $model->company_id);
+            if (is_array($company)) {
+                $details['linked_company'] = $company;
+                $details['company'] = $company['name'];
+                $details['company_vat'] = $company['vat_number'];
+                $details['company_number'] = $company['company_number'];
+                $details['company_email'] = $company['email'];
+                $details['company_phone'] = $company['phone'];
+                $details['company_street'] = $company['street'];
+                $details['company_house_number'] = $company['house_number'];
+                $details['company_postal_code'] = $company['postal_code'];
+            }
+        }
+
+        // Keep legacy flat fields for compatibility, but expose explicit separation for messaging contracts.
+        $details['user'] = $this->toUserApiArray($model);
+        $details['company_entity'] = $this->toCompanyApiArray($model);
 
         if ($deep) {
             $details['balance'] = $this->getClientBalance($model);
@@ -392,6 +488,50 @@ class Service implements InjectionAwareInterface
         }
 
         return $details;
+    }
+
+    public function toUserApiArray(\Model_Client $model): array
+    {
+        return [
+            'id' => $model->id,
+            'aid' => $model->aid,
+            'email' => $model->email,
+            'email_approved' => $model->email_approved,
+            'type' => $model->type,
+            'group_id' => $model->client_group_id,
+            'first_name' => $model->first_name,
+            'last_name' => $model->last_name,
+            'gender' => $model->gender,
+            'birthday' => $model->birthday,
+            'phone_cc' => $model->phone_cc,
+            'phone' => $model->phone,
+            'address_1' => $model->address_1,
+            'address_2' => $model->address_2,
+            'city' => $model->city,
+            'state' => $model->state,
+            'postcode' => $model->postcode,
+            'country' => $model->country,
+            'currency' => $model->currency,
+            'company_id' => $model->company_id,
+            'created_at' => $model->created_at,
+        ];
+    }
+
+    public function toCompanyApiArray(\Model_Client $model): ?array
+    {
+        if (empty($model->company_id)) {
+            return null;
+        }
+
+        return $this->getCompanyById((string) $model->company_id);
+    }
+
+    public function toMessagingApiArray(\Model_Client $model): array
+    {
+        return [
+            'user' => $this->toUserApiArray($model),
+            'company' => $this->toCompanyApiArray($model),
+        ];
     }
 
     public function getClientBalance(\Model_Client $c)
@@ -496,6 +636,7 @@ class Service implements InjectionAwareInterface
         $client->gender = $data['gender'] ?? null;
         $client->birthday = $data['birthday'] ?? null;
         $client->phone = $data['phone'] ?? null;
+        $client->company_id = $data['company_id'] ?? null;
         $client->company = $data['company'] ?? null;
         $client->company_vat = $data['company_vat'] ?? null;
         $client->company_number = $data['company_number'] ?? null;
@@ -528,6 +669,8 @@ class Service implements InjectionAwareInterface
         $created_at = $data['created_at'] ?? null;
         $client->created_at = !empty($created_at) ? date('Y-m-d H:i:s', strtotime($created_at)) : date('Y-m-d H:i:s');
         $client->updated_at = date('Y-m-d H:i:s');
+
+        $this->syncClientCompany($client, $data);
         $this->di['db']->store($client);
 
         return $client;
@@ -702,6 +845,161 @@ class Service implements InjectionAwareInterface
         } else {
             return $c->id;
         }
+    }
+
+    private function shouldSyncClientCompany(array $data): bool
+    {
+        return array_key_exists('company_id', $data)
+            || array_key_exists('company', $data)
+            || array_key_exists('company_vat', $data)
+            || array_key_exists('company_number', $data)
+            || array_key_exists('company_email', $data)
+            || array_key_exists('company_phone', $data)
+            || array_key_exists('street', $data)
+            || array_key_exists('house_number', $data)
+            || array_key_exists('postal_code', $data)
+            || array_key_exists('address_1', $data)
+            || array_key_exists('address_2', $data)
+            || array_key_exists('city', $data)
+            || array_key_exists('state', $data)
+            || array_key_exists('postcode', $data)
+            || array_key_exists('country', $data);
+    }
+
+    private function buildCompanyData(array $data, \Model_Client $client): array
+    {
+        $existingCompany = null;
+        if (!empty($client->company_id)) {
+            $existingCompany = $this->getCompanyById((string) $client->company_id);
+        }
+
+        $defaultPhone = trim((string) (($client->phone_cc ?? '') . ' ' . ($client->phone ?? '')));
+
+        return [
+            'name' => trim((string) ($data['company'] ?? $client->company ?? '')),
+            'vat_number' => trim((string) ($data['company_vat'] ?? $client->company_vat ?? '')),
+            'company_number' => trim((string) ($data['company_number'] ?? $client->company_number ?? '')),
+            'email' => trim((string) ($data['company_email'] ?? ($existingCompany['email'] ?? $client->email ?? ''))),
+            'phone' => trim((string) ($data['company_phone'] ?? ($existingCompany['phone'] ?? $defaultPhone))),
+            'street' => trim((string) ($data['street'] ?? ($existingCompany['street'] ?? $client->address_1 ?? ''))),
+            'house_number' => trim((string) ($data['house_number'] ?? ($existingCompany['house_number'] ?? $client->address_2 ?? ''))),
+            'city' => trim((string) ($data['city'] ?? $client->city ?? '')),
+            'state' => trim((string) ($data['state'] ?? $client->state ?? '')),
+            'postal_code' => trim((string) ($data['postal_code'] ?? ($existingCompany['postal_code'] ?? $client->postcode ?? ''))),
+            'country' => trim((string) ($data['country'] ?? $client->country ?? '')),
+        ];
+    }
+
+    private function hasCompanyIdentity(array $companyData): bool
+    {
+        return $companyData['name'] !== '' || $companyData['vat_number'] !== '';
+    }
+
+    private function findExistingCompanyId(array $companyData, ?string $fallbackCompanyId = null): ?string
+    {
+        if ($fallbackCompanyId) {
+            return $fallbackCompanyId;
+        }
+
+        if ($companyData['vat_number'] !== '') {
+            $id = $this->di['db']->getCell('SELECT id FROM company WHERE vat_number = :vat LIMIT 1', [':vat' => $companyData['vat_number']]);
+            if ($id) {
+                return (string) $id;
+            }
+        }
+
+        if ($companyData['name'] !== '' && $companyData['company_number'] !== '') {
+            $id = $this->di['db']->getCell('SELECT id FROM company WHERE name = :name AND company_number = :company_number LIMIT 1', [
+                ':name' => $companyData['name'],
+                ':company_number' => $companyData['company_number'],
+            ]);
+            if ($id) {
+                return (string) $id;
+            }
+        }
+
+        return null;
+    }
+
+    private function generateCompanyId(): string
+    {
+        if (class_exists(Uuid::class)) {
+            return Uuid::uuid4()->toString();
+        }
+
+        return sprintf(
+            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            random_int(0, 0xffff),
+            random_int(0, 0xffff),
+            random_int(0, 0xffff),
+            random_int(0, 0x0fff) | 0x4000,
+            random_int(0, 0x3fff) | 0x8000,
+            random_int(0, 0xffff),
+            random_int(0, 0xffff),
+            random_int(0, 0xffff)
+        );
+    }
+
+    private function upsertCompany(string $companyId, array $companyData): array
+    {
+        $now = date('Y-m-d H:i:s');
+        $existing = $this->getCompanyById($companyId);
+
+        if ($existing) {
+            $this->di['db']->exec(
+                'UPDATE company SET name = :name, vat_number = :vat_number, company_number = :company_number, email = :email, phone = :phone, street = :street, house_number = :house_number, city = :city, state = :state, postal_code = :postal_code, country = :country, updated_at = :updated_at WHERE id = :id',
+                [
+                    ':id' => $companyId,
+                    ':name' => $companyData['name'],
+                    ':vat_number' => $companyData['vat_number'] !== '' ? $companyData['vat_number'] : null,
+                    ':company_number' => $companyData['company_number'] !== '' ? $companyData['company_number'] : null,
+                    ':email' => $companyData['email'] !== '' ? $companyData['email'] : null,
+                    ':phone' => $companyData['phone'] !== '' ? $companyData['phone'] : null,
+                    ':street' => $companyData['street'] !== '' ? $companyData['street'] : null,
+                    ':house_number' => $companyData['house_number'] !== '' ? $companyData['house_number'] : null,
+                    ':city' => $companyData['city'] !== '' ? $companyData['city'] : null,
+                    ':state' => $companyData['state'] !== '' ? $companyData['state'] : null,
+                    ':postal_code' => $companyData['postal_code'] !== '' ? $companyData['postal_code'] : null,
+                    ':country' => $companyData['country'] !== '' ? $companyData['country'] : null,
+                    ':updated_at' => $now,
+                ]
+            );
+        } else {
+            $this->di['db']->exec(
+                'INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, state, postal_code, country, created_at, updated_at) VALUES (:id, :name, :vat_number, :company_number, :email, :phone, :street, :house_number, :city, :state, :postal_code, :country, :created_at, :updated_at)',
+                [
+                    ':id' => $companyId,
+                    ':name' => $companyData['name'],
+                    ':vat_number' => $companyData['vat_number'] !== '' ? $companyData['vat_number'] : null,
+                    ':company_number' => $companyData['company_number'] !== '' ? $companyData['company_number'] : null,
+                    ':email' => $companyData['email'] !== '' ? $companyData['email'] : null,
+                    ':phone' => $companyData['phone'] !== '' ? $companyData['phone'] : null,
+                    ':street' => $companyData['street'] !== '' ? $companyData['street'] : null,
+                    ':house_number' => $companyData['house_number'] !== '' ? $companyData['house_number'] : null,
+                    ':city' => $companyData['city'] !== '' ? $companyData['city'] : null,
+                    ':state' => $companyData['state'] !== '' ? $companyData['state'] : null,
+                    ':postal_code' => $companyData['postal_code'] !== '' ? $companyData['postal_code'] : null,
+                    ':country' => $companyData['country'] !== '' ? $companyData['country'] : null,
+                    ':created_at' => $now,
+                    ':updated_at' => $now,
+                ]
+            );
+        }
+
+        $company = $this->getCompanyById($companyId);
+        if (!$company) {
+            throw new \FOSSBilling\Exception('Unable to persist company record');
+        }
+
+        return $company;
+    }
+
+    private function applyCompanyToClient(\Model_Client $client, array $company): void
+    {
+        $client->company_id = $company['id'];
+        $client->company = $company['name'];
+        $client->company_vat = $company['vat_number'];
+        $client->company_number = $company['company_number'];
     }
 
     /*
