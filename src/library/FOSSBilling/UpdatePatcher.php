@@ -422,7 +422,6 @@ class UpdatePatcher implements InjectionAwareInterface
                     street varchar(255) DEFAULT NULL,
                     house_number varchar(64) DEFAULT NULL,
                     city varchar(100) DEFAULT NULL,
-                    state varchar(100) DEFAULT NULL,
                     postal_code varchar(32) DEFAULT NULL,
                     country varchar(2) DEFAULT NULL,
                     created_at datetime DEFAULT NULL,
@@ -438,9 +437,13 @@ class UpdatePatcher implements InjectionAwareInterface
                 $q = 'ALTER TABLE client ADD KEY company_id_idx (company_id);';
                 $this->executeSql($q);
 
+                // Ensure FK-compatible collation/charset with company.id.
+                $q = 'ALTER TABLE client MODIFY company_id char(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci DEFAULT NULL;';
+                $this->executeSql($q);
+
                 // Backfill companies from existing client profile company fields.
-                    $q = "INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, state, postal_code, country, created_at, updated_at)
-                        SELECT UUID(), MAX(c.company), c.company_vat, MAX(c.company_number), MAX(c.email), MAX(TRIM(CONCAT(COALESCE(c.phone_cc, ''), ' ', COALESCE(c.phone, '')))), MAX(c.address_1), MAX(c.address_2), MAX(c.city), MAX(c.state), MAX(c.postcode), MAX(c.country), NOW(), NOW()
+                                        $q = "INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, postal_code, country, created_at, updated_at)
+                                                SELECT UUID(), MAX(c.company), c.company_vat, MAX(c.company_number), MAX(c.email), MAX(TRIM(CONCAT(COALESCE(c.phone_cc, ''), ' ', COALESCE(c.phone, '')))), MAX(c.address_1), MAX(c.address_2), MAX(c.city), MAX(c.postcode), MAX(c.country), NOW(), NOW()
                       FROM client c
                       WHERE c.company_vat IS NOT NULL
                         AND c.company_vat <> ''
@@ -449,13 +452,13 @@ class UpdatePatcher implements InjectionAwareInterface
                         GROUP BY c.company_vat";
                 $this->executeSql($q);
 
-                    $q = "INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, state, postal_code, country, created_at, updated_at)
-                        SELECT UUID(), c.company, NULL, c.company_number, c.email, TRIM(CONCAT(COALESCE(c.phone_cc, ''), ' ', COALESCE(c.phone, ''))), c.address_1, c.address_2, c.city, c.state, c.postcode, c.country, NOW(), NOW()
+                                        $q = "INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, postal_code, country, created_at, updated_at)
+                                                SELECT UUID(), c.company, NULL, c.company_number, c.email, TRIM(CONCAT(COALESCE(c.phone_cc, ''), ' ', COALESCE(c.phone, ''))), c.address_1, c.address_2, c.city, c.postcode, c.country, NOW(), NOW()
                       FROM client c
                       WHERE (c.company_vat IS NULL OR c.company_vat = '')
                         AND c.company IS NOT NULL
                         AND c.company <> ''
-                        GROUP BY c.company, c.company_number, c.email, c.phone_cc, c.phone, c.address_1, c.address_2, c.city, c.state, c.postcode, c.country";
+                                                GROUP BY c.company, c.company_number, c.email, c.phone_cc, c.phone, c.address_1, c.address_2, c.city, c.postcode, c.country";
                 $this->executeSql($q);
 
                 $q = "UPDATE client c
@@ -467,7 +470,6 @@ class UpdatePatcher implements InjectionAwareInterface
                                             AND (cn.street <=> c.address_1)
                                             AND (cn.house_number <=> c.address_2)
                                             AND (cn.city <=> c.city)
-                                            AND (cn.state <=> c.state)
                                             AND (cn.postal_code <=> c.postcode)
                                             AND (cn.country <=> c.country)
                       SET c.company_id = COALESCE(cv.id, cn.id)
@@ -480,6 +482,10 @@ class UpdatePatcher implements InjectionAwareInterface
                       REFERENCES company(id)
                       ON DELETE SET NULL
                       ON UPDATE CASCADE;';
+                $this->executeSql($q);
+            },
+            45 => function (): void {
+                $q = 'ALTER TABLE company DROP COLUMN IF EXISTS state;';
                 $this->executeSql($q);
             },
         ];

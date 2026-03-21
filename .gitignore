@@ -1,5 +1,6 @@
 vendor/
 /src/config.php
+/src/config.old.php
 !/src/library/FOSSBilling/Config.php
 .env
 compose.yml

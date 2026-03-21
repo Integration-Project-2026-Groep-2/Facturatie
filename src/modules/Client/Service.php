@@ -884,7 +884,6 @@ class Service implements InjectionAwareInterface
             'street' => trim((string) ($data['street'] ?? ($existingCompany['street'] ?? $client->address_1 ?? ''))),
             'house_number' => trim((string) ($data['house_number'] ?? ($existingCompany['house_number'] ?? $client->address_2 ?? ''))),
             'city' => trim((string) ($data['city'] ?? $client->city ?? '')),
-            'state' => trim((string) ($data['state'] ?? $client->state ?? '')),
             'postal_code' => trim((string) ($data['postal_code'] ?? ($existingCompany['postal_code'] ?? $client->postcode ?? ''))),
             'country' => trim((string) ($data['country'] ?? $client->country ?? '')),
         ];
@@ -947,7 +946,7 @@ class Service implements InjectionAwareInterface
 
         if ($existing) {
             $this->di['db']->exec(
-                'UPDATE company SET name = :name, vat_number = :vat_number, company_number = :company_number, email = :email, phone = :phone, street = :street, house_number = :house_number, city = :city, state = :state, postal_code = :postal_code, country = :country, updated_at = :updated_at WHERE id = :id',
+                'UPDATE company SET name = :name, vat_number = :vat_number, company_number = :company_number, email = :email, phone = :phone, street = :street, house_number = :house_number, city = :city, postal_code = :postal_code, country = :country, updated_at = :updated_at WHERE id = :id',
                 [
                     ':id' => $companyId,
                     ':name' => $companyData['name'],
@@ -958,7 +957,6 @@ class Service implements InjectionAwareInterface
                     ':street' => $companyData['street'] !== '' ? $companyData['street'] : null,
                     ':house_number' => $companyData['house_number'] !== '' ? $companyData['house_number'] : null,
                     ':city' => $companyData['city'] !== '' ? $companyData['city'] : null,
-                    ':state' => $companyData['state'] !== '' ? $companyData['state'] : null,
                     ':postal_code' => $companyData['postal_code'] !== '' ? $companyData['postal_code'] : null,
                     ':country' => $companyData['country'] !== '' ? $companyData['country'] : null,
                     ':updated_at' => $now,
@@ -966,7 +964,7 @@ class Service implements InjectionAwareInterface
             );
         } else {
             $this->di['db']->exec(
-                'INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, state, postal_code, country, created_at, updated_at) VALUES (:id, :name, :vat_number, :company_number, :email, :phone, :street, :house_number, :city, :state, :postal_code, :country, :created_at, :updated_at)',
+                'INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, postal_code, country, created_at, updated_at) VALUES (:id, :name, :vat_number, :company_number, :email, :phone, :street, :house_number, :city, :postal_code, :country, :created_at, :updated_at)',
                 [
                     ':id' => $companyId,
                     ':name' => $companyData['name'],
@@ -977,7 +975,6 @@ class Service implements InjectionAwareInterface
                     ':street' => $companyData['street'] !== '' ? $companyData['street'] : null,
                     ':house_number' => $companyData['house_number'] !== '' ? $companyData['house_number'] : null,
                     ':city' => $companyData['city'] !== '' ? $companyData['city'] : null,
-                    ':state' => $companyData['state'] !== '' ? $companyData['state'] : null,
                     ':postal_code' => $companyData['postal_code'] !== '' ? $companyData['postal_code'] : null,
                     ':country' => $companyData['country'] !== '' ? $companyData['country'] : null,
                     ':created_at' => $now,
