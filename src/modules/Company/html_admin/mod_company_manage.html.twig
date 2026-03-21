@@ -1,0 +1,107 @@
+{% extends request.ajax ? 'layout_blank.html.twig' : 'layout_default.html.twig' %}
+
+{% import 'macro_functions.html.twig' as mf %}
+
+{% set active_menu = 'company' %}
+
+{% block meta_title %}{{ company.name }}{% endblock %}
+
+{% block breadcrumbs %}
+<ol class="breadcrumb">
+    <li class="breadcrumb-item">
+        <a href="{{ '/'|alink }}">
+            <svg class="icon">
+                <use xlink:href="#home" />
+            </svg>
+        </a>
+    </li>
+    <li class="breadcrumb-item">
+        <a href="{{ 'company'|alink }}">{{ 'Companies'|trans }}</a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">{{ company.name }}</li>
+</ol>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <form method="post" action="{{ 'api/admin/company/update'|link }}" class="api-form" data-api-msg="{{ 'Company updated'|trans }}">
+        <input type="hidden" name="CSRFToken" value="{{ CSRFToken }}"/>
+        <input type="hidden" name="id" value="{{ company.id }}"/>
+
+        <div class="card-body">
+            <h3 class="card-title">{{ 'Edit company details'|trans }}</h3>
+
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Name'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="name" value="{{ company.name }}" required>
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'VAT Number'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="vat_number" value="{{ company.vat_number }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Company Number'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="company_number" value="{{ company.company_number }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Email'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="email" name="email" value="{{ company.email }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Phone'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="phone" value="{{ company.phone }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Street'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="street" value="{{ company.street }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'House number'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="house_number" value="{{ company.house_number }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Postal code'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="postal_code" value="{{ company.postal_code }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'City'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" name="city" value="{{ company.city }}">
+                </div>
+            </div>
+            <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'Country'|trans }}</label>
+                <div class="col">
+                    {{ mf.selectbox('country', guest.system_countries, company.country, 0, 'Select country'|trans) }}
+                </div>
+            </div>
+        </div>
+
+        <div class="card-footer d-flex justify-content-between">
+            <a class="btn btn-danger api-link"
+               href="{{ 'api/admin/company/delete'|link({ 'id': company.id, 'CSRFToken': CSRFToken }) }}"
+               data-api-confirm="{{ 'Are you sure?'|trans }}"
+               data-api-redirect="{{ 'company'|alink }}">
+                {{ 'Delete'|trans }}
+            </a>
+            <button class="btn btn-primary" type="submit">{{ 'Update'|trans }}</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

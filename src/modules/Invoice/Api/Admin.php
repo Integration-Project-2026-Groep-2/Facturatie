@@ -126,6 +126,24 @@ class Admin extends \Api_Abstract
     }
 
     /**
+     * Generate a company summary invoice for all users linked to the same company as the selected client.
+     *
+     * @return int
+     */
+    public function generate_company_summary($data)
+    {
+        $required = [
+            'client_id' => 'Client id is missing',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        $client = $this->di['db']->getExistingModelById('Client', $data['client_id'], 'Client not found');
+        $invoice = $this->getService()->generateCompanySummaryInvoiceByClient($client);
+
+        return (int) $invoice->id;
+    }
+
+    /**
      * Approve invoice.
      *
      * @return bool

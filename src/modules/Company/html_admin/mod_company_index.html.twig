@@ -1,0 +1,141 @@
+{% extends 'layout_default.html.twig' %}
+
+{% import 'macro_functions.html.twig' as mf %}
+
+{% set active_menu = 'company' %}
+
+{% block meta_title %}{{ 'Companies'|trans }}{% endblock %}
+
+{% block content %}
+<ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+        <a class="nav-link active" href="#tab-index" data-bs-toggle="tab" role="tab">{{ 'Companies'|trans }}</a>
+    </li>
+    <li class="nav-item" role="presentation">
+        <a class="nav-link" href="#tab-new" data-bs-toggle="tab" role="tab">
+            <svg class="icon me-2">
+                <use xlink:href="#plus" />
+            </svg>
+            {{ 'New company'|trans }}
+        </a>
+    </li>
+</ul>
+
+<div class="card">
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="tab-index" role="tabpanel">
+            {{ include('partial_search.html.twig') }}
+            <div class="table-responsive">
+                <table class="table card-table table-vcenter table-striped text-nowrap">
+                    <thead>
+                        <tr>
+                            <th>{{ 'Name'|trans }}</th>
+                            <th>{{ 'VAT Number'|trans }}</th>
+                            <th>{{ 'Company Number'|trans }}</th>
+                            <th>{{ 'Email'|trans }}</th>
+                            <th>{{ 'Linked clients'|trans }}</th>
+                            <th class="w-1"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% set companies = admin.company_get_list({ 'per_page': 30, 'page': request.page }|merge(request)) %}
+                        {% for company in companies.list %}
+                        <tr>
+                            <td><a href="{{ 'company/manage'|alink }}/{{ company.id }}">{{ company.name }}</a></td>
+                            <td>{{ company.vat_number|default('-') }}</td>
+                            <td>{{ company.company_number|default('-') }}</td>
+                            <td>{{ company.email|default('-') }}</td>
+                            <td>{{ company.linked_clients }}</td>
+                            <td>
+                                <a class="btn btn-icon" href="{{ 'company/manage'|alink }}/{{ company.id }}">
+                                    <svg class="icon">
+                                        <use xlink:href="#edit" />
+                                    </svg>
+                                </a>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td class="text-muted" colspan="6">{{ 'The list is empty'|trans }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% include "partial_pagination.html.twig" with { 'list': companies, 'url': 'company'|alink } %}
+        </div>
+
+        <div class="tab-pane fade" id="tab-new" role="tabpanel">
+            <form method="post" action="{{ 'api/admin/company/create'|link }}" class="api-form" data-api-redirect="{{ 'company'|alink }}" data-api-msg="{{ 'Company created'|trans }}">
+                <input type="hidden" name="CSRFToken" value="{{ CSRFToken }}"/>
+                <div class="card-body">
+                    <h5>{{ 'Create company'|trans }}</h5>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Name'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="name" required>
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'VAT Number'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="vat_number">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Company Number'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="company_number">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Email'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="email" name="email">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Phone'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="phone">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Street'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="street">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'House number'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="house_number">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Postal code'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="postal_code">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'City'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="city">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Country'|trans }}</label>
+                        <div class="col">
+                            {{ mf.selectbox('country', guest.system_countries, null, 0, 'Select country'|trans) }}
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer text-end">
+                    <button class="btn btn-primary" type="submit">{{ 'Create'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

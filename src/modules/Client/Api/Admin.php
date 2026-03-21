@@ -108,8 +108,14 @@ class Admin extends \Api_Abstract
      * @optional string $city - city
      * @optional string $birthday - Birthday
      * @optional string $company - Company
+     * @optional string $company_id - Existing company UUID to link this client to
      * @optional string $company_vat - Company VAT number
      * @optional string $company_number - Company number
+     * @optional string $company_email - Company email address
+     * @optional string $company_phone - Company phone number
+     * @optional string $street - Company street
+     * @optional string $house_number - Company house number
+     * @optional string $postal_code - Company postal code
      * @optional string $type - Identifies client type: company or individual
      * @optional string $address_1 - Address line 1
      * @optional string $address_2 - Address line 2
@@ -198,8 +204,14 @@ class Admin extends \Api_Abstract
      * @optional string $city - city
      * @optional string $birthday - Birthday
      * @optional string $company - Company
+     * @optional string $company_id - Existing company UUID to link this client to
      * @optional string $company_vat - Company VAT number
      * @optional string $company_number - Company number
+     * @optional string $company_email - Company email address
+     * @optional string $company_phone - Company phone number
+     * @optional string $street - Company street
+     * @optional string $house_number - Company house number
+     * @optional string $postal_code - Company postal code
      * @optional string $type - Identifies client type: company or individual
      * @optional string $address_1 - Address line 1
      * @optional string $address_2 - Address line 2
@@ -295,6 +307,8 @@ class Admin extends \Api_Abstract
         $client->company_number = (!empty($data['company_number']) ? $data['company_number'] : $client->company_number);
         $client->type = (!empty($data['type']) ? $data['type'] : $client->type);
         $client->lang = (!empty($data['lang']) ? $data['lang'] : $client->lang);
+
+        $service->syncClientCompany($client, $data);
 
         $client->updated_at = date('Y-m-d H:i:s');
 
@@ -510,6 +524,18 @@ class Admin extends \Api_Abstract
         $service = $this->di['mod_service']('client');
 
         return $service->getGroupPairs();
+    }
+
+    /**
+     * Return companies as id and name pairs.
+     *
+     * @return array
+     */
+    public function company_get_pairs($data)
+    {
+        $service = $this->di['mod_service']('client');
+
+        return $service->getCompanyPairs();
     }
 
     /**

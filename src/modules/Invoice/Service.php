@@ -1193,6 +1193,70 @@ class Service implements InjectionAwareInterface
         return $proforma;
     }
 
+    public function generateCompanySummaryInvoiceByClient(\Model_Client $client): \Model_Invoice
+    {
+        $companyId = $client->company_id ?? null;
+        if (empty($companyId)) {
+            throw new InformationException('Client is not linked to a company.');
+        }
+
+        $company = $this->di['db']->getRow('SELECT * FROM company WHERE id = :id LIMIT 1', [':id' => $companyId]);
+        if (!$company) {
+            throw new InformationException('Linked company not found.');
+        }
+
+        $clients = $this->di['db']->find('Client', 'company_id = :company_id', [':company_id' => $companyId]);
+        if ((is_countable($clients) ? count($clients) : 0) < 1) {
+            throw new InformationException('No users are linked to this company.');
+        }
+
+        $invoice = $this->di['db']->dispense('Invoice');
+        $invoice->client_id = $client->id;
+        $invoice->status = \Model_Invoice::STATUS_UNPAID;
+        $invoice->currency = $client->currency;
+        $invoice->approved = 0;
+        $invoice->created_at = date('Y-m-d H:i:s');
+        $invoice->updated_at = date('Y-m-d H:i:s');
+        $this->di['db']->store($invoice);
+
+        $this->setInvoiceDefaults($invoice);
+
+        $invoice->buyer_first_name = null;
+        $invoice->buyer_last_name = null;
+        $invoice->buyer_company = $company['name'];
+        $invoice->buyer_company_vat = $company['vat_number'];
+        $invoice->buyer_company_number = $company['company_number'];
+        $invoice->buyer_address = trim(($company['street'] ?? '') . ' ' . ($company['house_number'] ?? ''));
+        $invoice->buyer_city = $company['city'] ?? null;
+        $invoice->buyer_state = $company['state'] ?? null;
+        $invoice->buyer_country = $company['country'] ?? null;
+        $invoice->buyer_zip = $company['postal_code'] ?? null;
+        $invoice->buyer_phone = $company['phone'] ?? null;
+        $invoice->buyer_email = $company['email'] ?? $client->email;
+        $this->di['db']->store($invoice);
+
+        $invoiceItemService = $this->di['mod_service']('Invoice', 'InvoiceItem');
+        $linkedUsers = [];
+        foreach ($clients as $linkedClient) {
+            $linkedUsers[] = trim(($linkedClient->first_name ?? '') . ' ' . ($linkedClient->last_name ?? '')) . ' <' . ($linkedClient->email ?? '-') . '>';
+
+            $invoiceItemService->addNew($invoice, [
+                'title' => sprintf('Linked user: %s %s (%s)', $linkedClient->first_name ?? '', $linkedClient->last_name ?? '', $linkedClient->email ?? '-'),
+                'price' => 0,
+                'quantity' => 1,
+                'taxed' => false,
+            ]);
+        }
+
+        $invoice->notes = trim(($invoice->notes ?? '') . PHP_EOL . 'Company summary invoice covering linked users:' . PHP_EOL . implode(PHP_EOL, $linkedUsers));
+        $invoice->updated_at = date('Y-m-d H:i:s');
+        $this->di['db']->store($invoice);
+
+        $this->di['logger']->info('Generated company summary invoice #%s for company %s', $invoice->id, $company['name']);
+
+        return $invoice;
+    }
+
     public function processInvoice(array $data)
     {
         $allowSubscribe = $data['allow_subscription'] ?? true;

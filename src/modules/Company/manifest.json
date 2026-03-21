@@ -1,0 +1,8 @@
+{
+    "id": "company",
+    "type": "mod",
+    "name": "Company",
+    "description": "Company management module",
+    "icon_url": "icon.svg",
+    "version": "1.0.0"
+}

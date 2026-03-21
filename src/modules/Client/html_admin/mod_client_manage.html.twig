@@ -259,19 +259,10 @@
                         </div>
                     </div>
                     <div class="mb-3 row" id="company-details">
-                        <label class="form-label col-3 col-form-label">{{ 'Company details'|trans }}:</label>
+                        <label class="form-label col-3 col-form-label">{{ 'Company'|trans }}:</label>
                         <div class="col">
-                            <div class="row">
-                                <div class="col">
-                                    <input class="form-control" type="text" name="company" value="{{ client.company }}" placeholder="{{ 'Company name'|trans }}">
-                                </div>
-                                <div class="col">
-                                    <input class="form-control" type="text" name="company_number" value="{{ client.company_number }}" placeholder="{{ 'Company number'|trans }}">
-                                </div>
-                                <div class="col">
-                                    <input class="form-control" type="text" name="company_vat" value="{{ client.company_vat }}" placeholder="{{ 'Company VAT number'|trans }}">
-                                </div>
-                            </div>
+                            {{ mf.selectbox('company_id', admin.company_get_pairs, client.company_id, 0, 'Select existing company (optional)'|trans) }}
+                            <small class="form-hint">{{ 'Manage company details from the Companies section.'|trans }}</small>
                         </div>
                     </div>
                     <button class="btn btn-primary w-100" type="submit">{{ 'Update'|trans }}</button>
@@ -576,6 +567,17 @@
                         </svg>
                         {{ 'New invoice'|trans }}
                     </a>
+                    {% if client.company_id %}
+                    <a class="btn btn-outline-primary api-link"
+                        href="{{ 'api/admin/invoice/generate_company_summary'|link({ 'client_id': client.id, 'CSRFToken': CSRFToken }) }}"
+                        data-api-jsonp="onAfterInvoicePrepared"
+                        data-api-confirm="{{ 'Generate a company summary invoice with all users linked to this company?'|trans }}">
+                        <svg class="icon">
+                            <use xlink:href="#plus" />
+                        </svg>
+                        {{ 'New company summary invoice'|trans }}
+                    </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
