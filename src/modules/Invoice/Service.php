@@ -214,6 +214,7 @@ class Service implements InjectionAwareInterface
         $result['created_at'] = $row['created_at'];
         $result['updated_at'] = $row['updated_at'];
         $result['lines'] = $lines;
+        $result['grouped_client_lines'] = $this->buildGroupedClientLines($lines, $result['currency']);
 
         $result['buyer'] = [
             'first_name' => $row['buyer_first_name'],
@@ -298,6 +299,46 @@ class Service implements InjectionAwareInterface
         }
 
         return $result;
+    }
+
+    private function buildGroupedClientLines(array $lines, string $currency): array
+    {
+        $groups = [];
+        $currentGroupIndex = null;
+
+        foreach ($lines as $line) {
+            $title = trim((string) ($line['title'] ?? ''));
+
+            if (str_starts_with($title, 'User section - ')) {
+                $clientLabel = trim(substr($title, strlen('User section - ')));
+                $groups[] = [
+                    'client_label' => $clientLabel,
+                    'lines' => [],
+                    'subtotal' => 0.0,
+                    'currency' => $currency,
+                ];
+                $currentGroupIndex = count($groups) - 1;
+
+                continue;
+            }
+
+            if ($currentGroupIndex === null) {
+                continue;
+            }
+
+            if (str_starts_with($title, 'Company grand total:')) {
+                continue;
+            }
+
+            $groups[$currentGroupIndex]['lines'][] = $line;
+            $groups[$currentGroupIndex]['subtotal'] += (float) ($line['total'] ?? 0);
+        }
+
+        foreach ($groups as $index => $group) {
+            $groups[$index]['subtotal'] = round((float) $group['subtotal'], 2);
+        }
+
+        return $groups;
     }
 
     public static function onAfterAdminInvoicePaymentReceived(\Box_Event $event)
@@ -1241,6 +1282,193 @@ class Service implements InjectionAwareInterface
 
     public function generateCompanySummaryInvoiceByClient(\Model_Client $client): \Model_Invoice
     {
+        $summary = $this->buildCompanySummaryContextByClient($client);
+
+        $invoice = $this->di['db']->dispense('Invoice');
+        $invoice->client_id = $client->id;
+        $invoice->status = \Model_Invoice::STATUS_UNPAID;
+        $invoice->currency = $summary['currency'];
+        $invoice->approved = 0;
+        $invoice->created_at = date('Y-m-d H:i:s');
+        $invoice->updated_at = date('Y-m-d H:i:s');
+        $this->di['db']->store($invoice);
+
+        $this->setInvoiceDefaults($invoice);
+
+        $company = $summary['company'];
+        $invoice->buyer_first_name = null;
+        $invoice->buyer_last_name = null;
+        $invoice->buyer_company = $company['name'];
+        $invoice->buyer_company_vat = $company['vat_number'];
+        $invoice->buyer_company_number = $company['company_number'];
+        $invoice->buyer_address = trim(($company['street'] ?? '') . ' ' . ($company['house_number'] ?? ''));
+        $invoice->buyer_city = $company['city'] ?? null;
+        $invoice->buyer_state = $company['state'] ?? null;
+        $invoice->buyer_country = $company['country'] ?? null;
+        $invoice->buyer_zip = $company['postal_code'] ?? null;
+        $invoice->buyer_phone = $company['phone'] ?? null;
+        $invoice->buyer_email = $company['email'] ?? $client->email;
+        $this->di['db']->store($invoice);
+
+        $transactionsByClient = [];
+        foreach ($summary['transactions'] as $transaction) {
+            $clientId = (int) $transaction['client_id'];
+            if (!isset($transactionsByClient[$clientId])) {
+                $transactionsByClient[$clientId] = [];
+            }
+            $transactionsByClient[$clientId][] = $transaction;
+        }
+
+        $invoiceItemService = $this->di['mod_service']('Invoice', 'InvoiceItem');
+        $notes = ['Company summary invoice grouped by linked users:'];
+
+        foreach ($summary['clients'] as $linkedClient) {
+            $clientId = (int) $linkedClient['id'];
+            $clientTransactions = $transactionsByClient[$clientId] ?? [];
+            if (empty($clientTransactions)) {
+                continue;
+            }
+
+            $clientTotal = round((float) ($linkedClient['unpaid_total'] ?? 0), 2);
+            $clientIdentity = sprintf('%s (%s)', $linkedClient['name'], $linkedClient['email']);
+
+            // Section header line per user.
+            $invoiceItemService->addNew($invoice, [
+                'title' => sprintf('User section - %s', $clientIdentity),
+                'price' => 0,
+                'quantity' => 1,
+                'taxed' => false,
+            ]);
+
+            foreach ($clientTransactions as $transaction) {
+                $sourceItems = $this->di['db']->find('InvoiceItem', 'invoice_id = :invoice_id', [
+                    ':invoice_id' => (int) $transaction['invoice_id'],
+                ]);
+
+                $sourceSubtotal = 0.0;
+                foreach ($sourceItems as $sourceItem) {
+                    if (!$sourceItem instanceof \Model_InvoiceItem) {
+                        continue;
+                    }
+
+                    $quantity = (float) ($sourceItem->quantity ?? 1);
+                    if ($quantity <= 0) {
+                        $quantity = 1;
+                    }
+
+                    $unitPrice = (float) ($sourceItem->price ?? 0);
+                    $lineTotal = $unitPrice * $quantity;
+                    $sourceSubtotal += $lineTotal;
+
+                    $invoiceItemService->addNew($invoice, [
+                        'title' => sprintf(
+                            '  %s | %s | %s',
+                            $transaction['invoice_serie_nr'],
+                            $sourceItem->title,
+                            $clientIdentity
+                        ),
+                        'price' => $unitPrice,
+                        'quantity' => $quantity,
+                        'taxed' => false,
+                    ]);
+
+                    $notes[] = sprintf(
+                        '  - %s | %s | qty %s | unit %s %s',
+                        $transaction['invoice_serie_nr'],
+                        $sourceItem->title,
+                        number_format($quantity, 2, '.', ''),
+                        number_format($unitPrice, 2, '.', ''),
+                        $summary['currency']
+                    );
+                }
+
+                $sourceSubtotal = round($sourceSubtotal, 2);
+                $invoiceTotal = round((float) $transaction['total'], 2);
+                $adjustment = round($invoiceTotal - $sourceSubtotal, 2);
+
+                // Keep totals exact (tax/discount/rounding) while still exposing raw line details above.
+                if (abs($adjustment) >= 0.01) {
+                    $invoiceItemService->addNew($invoice, [
+                        'title' => sprintf('  %s | tax/adjustment | %s', $transaction['invoice_serie_nr'], $clientIdentity),
+                        'price' => $adjustment,
+                        'quantity' => 1,
+                        'taxed' => false,
+                    ]);
+                }
+            }
+
+            $notes[] = sprintf(
+                '%s | subtotal: %s %s',
+                $clientIdentity,
+                number_format($clientTotal, 2, '.', ''),
+                $summary['currency']
+            );
+            foreach ($clientTransactions as $transaction) {
+                $notes[] = sprintf(
+                    '  - %s | %s %s',
+                    $transaction['invoice_serie_nr'],
+                    number_format((float) $transaction['total'], 2, '.', ''),
+                    $summary['currency']
+                );
+            }
+        }
+
+        // Explicit company-level total marker line.
+        $invoiceItemService->addNew($invoice, [
+            'title' => sprintf(
+                'Company grand total: %s %s',
+                number_format((float) $summary['total'], 2, '.', ''),
+                $summary['currency']
+            ),
+            'price' => 0,
+            'quantity' => 1,
+            'taxed' => false,
+        ]);
+
+        $notes[] = '';
+        $notes[] = sprintf(
+            'Company grand total: %s %s',
+            number_format((float) $summary['total'], 2, '.', ''),
+            $summary['currency']
+        );
+
+        $invoice->notes = trim(($invoice->notes ?? '') . PHP_EOL . implode(PHP_EOL, $notes));
+        $invoice->updated_at = date('Y-m-d H:i:s');
+        $this->di['db']->store($invoice);
+
+        $this->di['logger']->info(
+            'Generated company summary invoice #%s for company %s with %s transactions totaling %s %s',
+            $invoice->id,
+            $company['name'],
+            count($summary['transactions']),
+            number_format((float) $summary['total'], 2, '.', ''),
+            $summary['currency']
+        );
+
+        return $invoice;
+    }
+
+    public function getCompanySummaryPreviewByClient(\Model_Client $client): array
+    {
+        return $this->buildCompanySummaryContextByClient($client);
+    }
+
+    public function getCompanySummaryPreviewByCompanyId(string $companyId): array
+    {
+        $ownerClient = $this->resolveCompanySummaryOwnerClient($companyId);
+
+        return $this->buildCompanySummaryContextByClient($ownerClient);
+    }
+
+    public function generateCompanySummaryInvoiceByCompanyId(string $companyId): \Model_Invoice
+    {
+        $ownerClient = $this->resolveCompanySummaryOwnerClient($companyId);
+
+        return $this->generateCompanySummaryInvoiceByClient($ownerClient);
+    }
+
+    private function buildCompanySummaryContextByClient(\Model_Client $client): array
+    {
         $companyId = $client->company_id ?? null;
         if (empty($companyId)) {
             throw new InformationException('Client is not linked to a company.');
@@ -1256,51 +1484,134 @@ class Service implements InjectionAwareInterface
             throw new InformationException('No users are linked to this company.');
         }
 
-        $invoice = $this->di['db']->dispense('Invoice');
-        $invoice->client_id = $client->id;
-        $invoice->status = \Model_Invoice::STATUS_UNPAID;
-        $invoice->currency = $client->currency;
-        $invoice->approved = 0;
-        $invoice->created_at = date('Y-m-d H:i:s');
-        $invoice->updated_at = date('Y-m-d H:i:s');
-        $this->di['db']->store($invoice);
+        $linkedClients = [];
+        $clientIds = [];
+        $clientLookup = [];
+        $currency = null;
 
-        $this->setInvoiceDefaults($invoice);
-
-        $invoice->buyer_first_name = null;
-        $invoice->buyer_last_name = null;
-        $invoice->buyer_company = $company['name'];
-        $invoice->buyer_company_vat = $company['vat_number'];
-        $invoice->buyer_company_number = $company['company_number'];
-        $invoice->buyer_address = trim(($company['street'] ?? '') . ' ' . ($company['house_number'] ?? ''));
-        $invoice->buyer_city = $company['city'] ?? null;
-        $invoice->buyer_state = $company['state'] ?? null;
-        $invoice->buyer_country = $company['country'] ?? null;
-        $invoice->buyer_zip = $company['postal_code'] ?? null;
-        $invoice->buyer_phone = $company['phone'] ?? null;
-        $invoice->buyer_email = $company['email'] ?? $client->email;
-        $this->di['db']->store($invoice);
-
-        $invoiceItemService = $this->di['mod_service']('Invoice', 'InvoiceItem');
-        $linkedUsers = [];
         foreach ($clients as $linkedClient) {
-            $linkedUsers[] = trim(($linkedClient->first_name ?? '') . ' ' . ($linkedClient->last_name ?? '')) . ' <' . ($linkedClient->email ?? '-') . '>';
+            $clientId = (int) $linkedClient->id;
+            $clientCurrency = (string) ($linkedClient->currency ?? '');
+            if ($clientCurrency === '') {
+                throw new InformationException(sprintf('Linked client #%s has no currency set.', $clientId));
+            }
 
-            $invoiceItemService->addNew($invoice, [
-                'title' => sprintf('Linked user: %s %s (%s)', $linkedClient->first_name ?? '', $linkedClient->last_name ?? '', $linkedClient->email ?? '-'),
-                'price' => 0,
-                'quantity' => 1,
-                'taxed' => false,
-            ]);
+            if ($currency === null) {
+                $currency = $clientCurrency;
+            } elseif ($currency !== $clientCurrency) {
+                throw new InformationException('All linked users must share the same currency to generate a single company summary invoice.');
+            }
+
+            $fullName = trim(($linkedClient->first_name ?? '') . ' ' . ($linkedClient->last_name ?? ''));
+            if ($fullName === '') {
+                $fullName = 'Client #' . $clientId;
+            }
+
+            $linkedClients[] = [
+                'id' => $clientId,
+                'name' => $fullName,
+                'email' => (string) ($linkedClient->email ?? '-'),
+                'currency' => $clientCurrency,
+            ];
+            $clientIds[] = $clientId;
+            $clientLookup[$clientId] = end($linkedClients);
         }
 
-        $invoice->notes = trim(($invoice->notes ?? '') . PHP_EOL . 'Company summary invoice covering linked users:' . PHP_EOL . implode(PHP_EOL, $linkedUsers));
-        $invoice->updated_at = date('Y-m-d H:i:s');
-        $this->di['db']->store($invoice);
+        if (empty($clientIds)) {
+            throw new InformationException('No users are linked to this company.');
+        }
 
-        $this->di['logger']->info('Generated company summary invoice #%s for company %s', $invoice->id, $company['name']);
+        $sql = sprintf(
+            'SELECT * FROM invoice WHERE client_id IN (%s) AND status = :status AND approved = 1 ORDER BY created_at ASC, id ASC',
+            implode(',', array_map('intval', $clientIds))
+        );
 
-        return $invoice;
+        $rows = $this->di['db']->getAll($sql, [':status' => \Model_Invoice::STATUS_UNPAID]);
+
+        $transactions = [];
+        $totalsByClient = [];
+        $totalAmount = 0.0;
+
+        foreach ($rows as $row) {
+            $invoiceModel = $this->di['db']->load('Invoice', (int) $row['id']);
+            if (!$invoiceModel instanceof \Model_Invoice) {
+                continue;
+            }
+
+            $invoiceTotal = round((float) $this->getTotalWithTax($invoiceModel), 2);
+            if ($invoiceTotal <= 0) {
+                continue;
+            }
+
+            $owner = $clientLookup[(int) $row['client_id']] ?? [
+                'id' => (int) $row['client_id'],
+                'name' => 'Client #' . (int) $row['client_id'],
+                'email' => '-',
+                'currency' => (string) $row['currency'],
+            ];
+
+            $transactions[] = [
+                'invoice_id' => (int) $row['id'],
+                'invoice_serie_nr' => $this->formatInvoiceSerieNr($row),
+                'client_id' => $owner['id'],
+                'client_name' => $owner['name'],
+                'client_email' => $owner['email'],
+                'currency' => (string) $row['currency'],
+                'created_at' => $row['created_at'],
+                'due_at' => $row['due_at'],
+                'total' => $invoiceTotal,
+            ];
+
+            $ownerKey = (int) $owner['id'];
+            $totalsByClient[$ownerKey] = ($totalsByClient[$ownerKey] ?? 0.0) + $invoiceTotal;
+            $totalAmount += $invoiceTotal;
+        }
+
+        if (empty($transactions)) {
+            throw new InformationException('No unpaid approved transactions were found for users linked to this company.');
+        }
+
+        foreach ($linkedClients as $index => $linkedClient) {
+            $linkedClients[$index]['unpaid_total'] = round((float) ($totalsByClient[$linkedClient['id']] ?? 0), 2);
+        }
+
+        return [
+            'company' => $company,
+            'currency' => $currency ?? (string) ($client->currency ?? ''),
+            'clients' => $linkedClients,
+            'transactions' => $transactions,
+            'transactions_count' => count($transactions),
+            'linked_clients_count' => count($linkedClients),
+            'total' => round($totalAmount, 2),
+            'has_transactions' => true,
+        ];
+    }
+
+    private function formatInvoiceSerieNr(array $invoice): string
+    {
+        $invoiceNumberPadding = $this->di['mod_service']('system')->getParamValue('invoice_number_padding');
+        $invoiceNumberPadding = $invoiceNumberPadding !== null && $invoiceNumberPadding !== '' ? $invoiceNumberPadding : 5;
+        $nr = is_numeric($invoice['nr'] ?? null) ? $invoice['nr'] : ($invoice['id'] ?? '');
+
+        return (string) ($invoice['serie'] ?? '') . sprintf('%0' . $invoiceNumberPadding . 's', $nr);
+    }
+
+    private function resolveCompanySummaryOwnerClient(string $companyId): \Model_Client
+    {
+        $companyId = trim($companyId);
+        if ($companyId === '') {
+            throw new InformationException('Company id is missing');
+        }
+
+        $owner = $this->di['db']->findOne('Client', 'company_id = :company_id ORDER BY id ASC', [
+            ':company_id' => $companyId,
+        ]);
+
+        if (!$owner instanceof \Model_Client) {
+            throw new InformationException('No users are linked to this company.');
+        }
+
+        return $owner;
     }
 
     public function processInvoice(array $data)

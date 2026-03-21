@@ -142,46 +142,48 @@
                                 </div>
                             </div>
 
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="well small">
-                                        <h5>{{ 'Client'|trans }}</h5>
-                                        <dl class="row">
-                                            {% if buyer.first_name|trim or buyer.last_name|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Name'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
-                                            {% endif %}
+                            {% if invoice.grouped_client_lines is not defined or invoice.grouped_client_lines|length == 0 %}
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="well small">
+                                            <h5>{{ 'Client'|trans }}</h5>
+                                            <dl class="row">
+                                                {% if buyer.first_name|trim or buyer.last_name|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Name'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.company|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Company'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.company }}</dd>
-                                            {% endif %}
+                                                {% if buyer.company|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Company'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.company }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.company_number|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Company number'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.company_number }}</dd>
-                                            {% endif %}
+                                                {% if buyer.company_number|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Company number'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.company_number }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.company_vat|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Company VAT'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.company_vat }}</dd>
-                                            {% endif %}
+                                                {% if buyer.company_vat|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Company VAT'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.company_vat }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.address|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Address'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.address }}</dd>
-                                                <dd class="col-sm-4">{{ buyer.city }}, {{ buyer.state }}</dd>
-                                                <dd class="col-sm-8">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
-                                            {% endif %}
+                                                {% if buyer.address|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Address'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.address }}</dd>
+                                                    <dd class="col-sm-4">{{ buyer.city }}, {{ buyer.state }}</dd>
+                                                    <dd class="col-sm-8">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.phone|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Phone'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.phone }}</dd>
-                                            {% endif %}
-                                        </dl>
+                                                {% if buyer.phone|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Phone'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.phone }}</dd>
+                                                {% endif %}
+                                            </dl>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            {% endif %}
                         </div>
 
                         {% if invoice.text_1 %}
@@ -190,35 +192,67 @@
                             </div>
                         {% endif %}
 
-                        <table class="table table-hover mt-3 mb-0">
-                            <thead>
-                            <tr>
-                                <th>{{ '#'|trans }}</th>
-                                <th>{{ 'Title'|trans }}</th>
-                                <th>{{ 'Price'|trans }}</th>
-                                <th class="text-end">{{ 'Total'|trans }}</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            {% for i, item in invoice.lines %}
-                                <tr>
-                                    <td>{{ i+1 }}</td>
-                                    <td>
-                                        {% if item.order_id %}
-                                            <a href="{{ '/order/service'|link }}/manage/{{ item.order_id }}">{{ item.title }}</a>
-                                        {% else %}
-                                            {{ item.title }}
-                                        {% endif %}
-                                        {% if item.quantity > 1 %}
-                                            x {{ item.quantity }} {{ item.unit }}
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ item.price|money(invoice.currency) }}</td>
-                                    <td class="text-end">{{ item.total|money(invoice.currency) }}</td>
-                                </tr>
+                        {% if invoice.grouped_client_lines is defined and invoice.grouped_client_lines|length > 0 %}
+                            {% for group in invoice.grouped_client_lines %}
+                                <div class="mt-4">
+                                    <h5 class="mb-2">{{ group.client_label }}</h5>
+                                    <table class="table table-hover mb-2">
+                                        <thead>
+                                        <tr>
+                                            <th>{{ '#'|trans }}</th>
+                                            <th>{{ 'Title'|trans }}</th>
+                                            <th>{{ 'Price'|trans }}</th>
+                                            <th class="text-end">{{ 'Total'|trans }}</th>
+                                        </tr>
+                                        </thead>
+                                        <tbody>
+                                        {% for i, item in group.lines %}
+                                            <tr>
+                                                <td>{{ i + 1 }}</td>
+                                                <td>{{ item.title }}</td>
+                                                <td>{{ item.price|money(invoice.currency) }}</td>
+                                                <td class="text-end">{{ item.total|money(invoice.currency) }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                        <tr>
+                                            <td colspan="3" class="text-end"><strong>{{ 'Client total'|trans }}</strong></td>
+                                            <td class="text-end"><strong>{{ group.subtotal|money(invoice.currency) }}</strong></td>
+                                        </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
                             {% endfor %}
-                            </tbody>
-                        </table>
+                        {% else %}
+                            <table class="table table-hover mt-3 mb-0">
+                                <thead>
+                                <tr>
+                                    <th>{{ '#'|trans }}</th>
+                                    <th>{{ 'Title'|trans }}</th>
+                                    <th>{{ 'Price'|trans }}</th>
+                                    <th class="text-end">{{ 'Total'|trans }}</th>
+                                </tr>
+                                </thead>
+                                <tbody>
+                                {% for i, item in invoice.lines %}
+                                    <tr>
+                                        <td>{{ i+1 }}</td>
+                                        <td>
+                                            {% if item.order_id %}
+                                                <a href="{{ '/order/service'|link }}/manage/{{ item.order_id }}">{{ item.title }}</a>
+                                            {% else %}
+                                                {{ item.title }}
+                                            {% endif %}
+                                            {% if item.quantity > 1 %}
+                                                x {{ item.quantity }} {{ item.unit }}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ item.price|money(invoice.currency) }}</td>
+                                        <td class="text-end">{{ item.total|money(invoice.currency) }}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% endif %}
 
                         <div class="row">
                             <div class="col-md-4 offset-md-8">

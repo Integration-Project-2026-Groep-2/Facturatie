@@ -144,6 +144,83 @@ class Admin extends \Api_Abstract
     }
 
     /**
+     * Return preview data for company summary invoice generation.
+     *
+     * @return array
+     */
+    public function get_company_summary_preview($data)
+    {
+        $required = [
+            'client_id' => 'Client id is missing',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        $client = $this->di['db']->getExistingModelById('Client', $data['client_id'], 'Client not found');
+
+        try {
+            return $this->getService()->getCompanySummaryPreviewByClient($client);
+        } catch (InformationException $e) {
+            return [
+                'company' => null,
+                'currency' => $client->currency,
+                'clients' => [],
+                'transactions' => [],
+                'transactions_count' => 0,
+                'linked_clients_count' => 0,
+                'total' => 0,
+                'has_transactions' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Generate a company summary invoice directly from company id.
+     *
+     * @return int
+     */
+    public function generate_company_summary_by_company($data)
+    {
+        $required = [
+            'company_id' => 'Company id is missing',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        $invoice = $this->getService()->generateCompanySummaryInvoiceByCompanyId((string) $data['company_id']);
+
+        return (int) $invoice->id;
+    }
+
+    /**
+     * Return preview data for company summary invoice generation by company id.
+     *
+     * @return array
+     */
+    public function get_company_summary_preview_by_company($data)
+    {
+        $required = [
+            'company_id' => 'Company id is missing',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        try {
+            return $this->getService()->getCompanySummaryPreviewByCompanyId((string) $data['company_id']);
+        } catch (InformationException $e) {
+            return [
+                'company' => null,
+                'currency' => null,
+                'clients' => [],
+                'transactions' => [],
+                'transactions_count' => 0,
+                'linked_clients_count' => 0,
+                'total' => 0,
+                'has_transactions' => false,
+                'message' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Approve invoice.
      *
      * @return bool

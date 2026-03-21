@@ -45,6 +45,7 @@
 		</p>
 		</div>
 
+		{% if invoice.grouped_client_lines is not defined or invoice.grouped_client_lines|length == 0 %}
 		<h3 class='ClientInfo'>{{ 'Client'|trans }}</h3>
 		<div class='ClientInfo'>
 		<p>
@@ -56,46 +57,99 @@
 		{% endfor %}
 		</p>
 		</div>
+		{% endif %}
 
 		<div class='Breakdown' style='top: {{top}}px'>
-			<table style='width:100%'>
-				<tr>
-					<th style='text-align: center; width:25px;'>#</th>
-					<th style='text-align: left'>{{ 'Product'|trans }}</th>
-					<th style='text-align: right'>{{ 'Quantity & Price'|trans }}</th>
-					<th style='text-align: right'>{{ 'Total'|trans }}</th>
-				</tr>
-				{% set nr = 0 %}
-				{% for item in invoice.lines %}
-					{% set nr = nr + 1 %}
-					<tr>
-						<td style='text-align: center; width:25px;'>{{ nr }}</td>
-						<td style='text-align: left'>{{ item.title }}</td>
-						<td style='text-align: right'>{{ item.quantity }}x {{ item.price|money(currency_code) }}</td>
-						<td style='text-align: right'>{{ item.total|money(currency_code) }}</td>
-					</tr>
+			{% if invoice.grouped_client_lines is defined and invoice.grouped_client_lines|length > 0 %}
+				{% for group in invoice.grouped_client_lines %}
+					<table style='width:100%; margin-bottom: 14px;'>
+						<tr>
+							<th style='text-align: left' colspan='4'>{{ group.client_label }}</th>
+						</tr>
+						<tr>
+							<th style='text-align: center; width:25px;'>#</th>
+							<th style='text-align: left'>{{ 'Product'|trans }}</th>
+							<th style='text-align: right'>{{ 'Quantity & Price'|trans }}</th>
+							<th style='text-align: right'>{{ 'Total'|trans }}</th>
+						</tr>
+						{% set nr = 0 %}
+						{% for item in group.lines %}
+							{% set nr = nr + 1 %}
+							<tr>
+								<td style='text-align: center; width:25px;'>{{ nr }}</td>
+								<td style='text-align: left'>{{ item.title }}</td>
+								<td style='text-align: right'>{{ item.quantity }}x {{ item.price|money(currency_code) }}</td>
+								<td style='text-align: right'>{{ item.total|money(currency_code) }}</td>
+							</tr>
+						{% endfor %}
+						<tr>
+							<th style='text-align: right' colspan='3'>{{ 'Client total'|trans }}:</th>
+							<th style='text-align: right'>{{ group.subtotal|money(currency_code) }}</th>
+						</tr>
+					</table>
 				{% endfor %}
-				<tr>
-					<th colspan='4'>_________________________________________________________________________________________</th>
-				</tr>
-				{% if invoice.tax > 0 %}
+
+				<table style='width:100%'>
 					<tr>
-						<th style='text-align: right' colspan='3'>{{ invoice.taxname }}
-							{{ invoice.taxrate }}% Tax:</th>
-						<th style='text-align: right'>{{ invoice.tax|money(currency_code) }}</th>
+						<th colspan='4'>_________________________________________________________________________________________</th>
 					</tr>
-				{% endif %}
-				{% if invoice.discount|default and invoice.discount > 0 %}
+					{% if invoice.tax > 0 %}
+						<tr>
+							<th style='text-align: right' colspan='3'>{{ invoice.taxname }} {{ invoice.taxrate }}% Tax:</th>
+							<th style='text-align: right'>{{ invoice.tax|money(currency_code) }}</th>
+						</tr>
+					{% endif %}
+					{% if invoice.discount|default and invoice.discount > 0 %}
+						<tr>
+							<th style='text-align: right' colspan='3'>{{ 'Discount'|trans }}:</th>
+							<th style='text-align: right'>{{ invoice.discount|money(currency_code) }}</th>
+						</tr>
+					{% endif %}
 					<tr>
-						<th style='text-align: right' colspan='3'>{{ 'Discount'|trans }}:</th>
-						<th style='text-align: right'>{{ invoice.discount|money(currency_code) }}</th>
+						<th style='text-align: right' colspan='3'>{{ 'Total'|trans }}:</th>
+						<th style='text-align: right'>{{ invoice.total|money(currency_code) }}</th>
 					</tr>
-				{% endif %}
-				<tr>
-					<th style='text-align: right'  colspan='3'>{{ 'Total'|trans }}:</th>
-					<th style='text-align: right'>{{ invoice.total|money(currency_code) }}</th>
-				</tr>
-			</table>
+				</table>
+			{% else %}
+				<table style='width:100%'>
+					<tr>
+						<th style='text-align: center; width:25px;'>#</th>
+						<th style='text-align: left'>{{ 'Product'|trans }}</th>
+						<th style='text-align: right'>{{ 'Quantity & Price'|trans }}</th>
+						<th style='text-align: right'>{{ 'Total'|trans }}</th>
+					</tr>
+					{% set nr = 0 %}
+					{% for item in invoice.lines %}
+						{% set nr = nr + 1 %}
+						<tr>
+							<td style='text-align: center; width:25px;'>{{ nr }}</td>
+							<td style='text-align: left'>{{ item.title }}</td>
+							<td style='text-align: right'>{{ item.quantity }}x {{ item.price|money(currency_code) }}</td>
+							<td style='text-align: right'>{{ item.total|money(currency_code) }}</td>
+						</tr>
+					{% endfor %}
+					<tr>
+						<th colspan='4'>_________________________________________________________________________________________</th>
+					</tr>
+					{% if invoice.tax > 0 %}
+						<tr>
+							<th style='text-align: right' colspan='3'>{{ invoice.taxname }}
+								{{ invoice.taxrate }}% Tax:</th>
+							<th style='text-align: right'>{{ invoice.tax|money(currency_code) }}</th>
+						</tr>
+					{% endif %}
+					{% if invoice.discount|default and invoice.discount > 0 %}
+						<tr>
+							<th style='text-align: right' colspan='3'>{{ 'Discount'|trans }}:</th>
+							<th style='text-align: right'>{{ invoice.discount|money(currency_code) }}</th>
+						</tr>
+					{% endif %}
+					<tr>
+						<th style='text-align: right'  colspan='3'>{{ 'Total'|trans }}:</th>
+						<th style='text-align: right'>{{ invoice.total|money(currency_code) }}</th>
+					</tr>
+				</table>
+			{% endif %}
 		</div>
 	</body>
 </html>

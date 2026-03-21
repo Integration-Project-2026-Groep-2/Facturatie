@@ -100,41 +100,43 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h4>{{ 'Billing & Delivery address'|trans }}</h4>
-                            <dl class="row">
-                                {% if buyer.first_name or buyer.last_name %}
-                                    <dt class="col-sm-6">{{ 'Name'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
-                                {% endif %}
-                                {% if buyer.company %}
-                                    <dt class="col-sm-6">{{ 'Company'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.company }}</dd>
-                                {% endif %}
-                                {% if buyer.company_number %}
-                                    <dt class="col-sm-6">{{ 'Company number'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.company_number }}</dd>
-                                {% endif %}
-                                {% if buyer.company_vat %}
-                                    <dt class="col-sm-6">{{ 'Company VAT'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.company_vat }}</dd>
-                                {% endif %}
-                                {% if buyer.address %}
-                                    <dt class="col-sm-6">{{ 'Address'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.address }}</dd>
-                                    <dd class="col-sm-6">{{ buyer.city }}, {{ buyer.state }}</dd>
-                                    <dd class="col-sm-6">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
-                                {% endif %}
-                                {% if buyer.phone %}
-                                    <dt class="col-sm-6">{{ 'Phone'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.phone }}</dd>
-                                {% endif %}
-                            </dl>
+                {% if invoice.grouped_client_lines is not defined or invoice.grouped_client_lines|length == 0 %}
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h4>{{ 'Billing & Delivery address'|trans }}</h4>
+                                <dl class="row">
+                                    {% if buyer.first_name or buyer.last_name %}
+                                        <dt class="col-sm-6">{{ 'Name'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
+                                    {% endif %}
+                                    {% if buyer.company %}
+                                        <dt class="col-sm-6">{{ 'Company'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.company }}</dd>
+                                    {% endif %}
+                                    {% if buyer.company_number %}
+                                        <dt class="col-sm-6">{{ 'Company number'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.company_number }}</dd>
+                                    {% endif %}
+                                    {% if buyer.company_vat %}
+                                        <dt class="col-sm-6">{{ 'Company VAT'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.company_vat }}</dd>
+                                    {% endif %}
+                                    {% if buyer.address %}
+                                        <dt class="col-sm-6">{{ 'Address'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.address }}</dd>
+                                        <dd class="col-sm-6">{{ buyer.city }}, {{ buyer.state }}</dd>
+                                        <dd class="col-sm-6">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
+                                    {% endif %}
+                                    {% if buyer.phone %}
+                                        <dt class="col-sm-6">{{ 'Phone'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.phone }}</dd>
+                                    {% endif %}
+                                </dl>
+                            </div>
                         </div>
                     </div>
-                </div>
+                {% endif %}
             </div>
 
             {% if invoice.text_1 %}
@@ -145,31 +147,61 @@
                 </div>
             {% endif %}
 
-            <table class="table mt-3">
-                <thead>
-                <tr>
-                    <th>{{ '#'|trans }}</th>
-                    <th>{{ 'Title'|trans }}</th>
-                    <th>{{ 'Price'|trans }}</th>
-                    <th class="text-end">{{ 'Total'|trans }}</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for i, item in invoice.lines %}
-                    <tr>
-                        <td>{{ i+1 }}.</td>
-                        <td>{{ item.title }}</td>
-                        <td>
-                            {{ item.price | money(invoice.currency) }}
-                            {% if item.quantity > 1 %}
-                                x {{ item.quantity }} {# item.unit #}
-                            {% endif %}
-                        </td>
-                        <td class="text-end">{{ item.total | money(invoice.currency) }}</td>
-                    </tr>
+            {% if invoice.grouped_client_lines is defined and invoice.grouped_client_lines|length > 0 %}
+                {% for group in invoice.grouped_client_lines %}
+                    <h5 class="mt-4 mb-2">{{ group.client_label }}</h5>
+                    <table class="table mb-2">
+                        <thead>
+                        <tr>
+                            <th>{{ '#'|trans }}</th>
+                            <th>{{ 'Title'|trans }}</th>
+                            <th>{{ 'Price'|trans }}</th>
+                            <th class="text-end">{{ 'Total'|trans }}</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for i, item in group.lines %}
+                            <tr>
+                                <td>{{ i + 1 }}.</td>
+                                <td>{{ item.title }}</td>
+                                <td>{{ item.price | money(invoice.currency) }}</td>
+                                <td class="text-end">{{ item.total | money(invoice.currency) }}</td>
+                            </tr>
+                        {% endfor %}
+                        <tr>
+                            <td colspan="3" class="text-end"><strong>{{ 'Client total'|trans }}</strong></td>
+                            <td class="text-end"><strong>{{ group.subtotal | money(invoice.currency) }}</strong></td>
+                        </tr>
+                        </tbody>
+                    </table>
                 {% endfor %}
-                </tbody>
-            </table>
+            {% else %}
+                <table class="table mt-3">
+                    <thead>
+                    <tr>
+                        <th>{{ '#'|trans }}</th>
+                        <th>{{ 'Title'|trans }}</th>
+                        <th>{{ 'Price'|trans }}</th>
+                        <th class="text-end">{{ 'Total'|trans }}</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for i, item in invoice.lines %}
+                        <tr>
+                            <td>{{ i+1 }}.</td>
+                            <td>{{ item.title }}</td>
+                            <td>
+                                {{ item.price | money(invoice.currency) }}
+                                {% if item.quantity > 1 %}
+                                    x {{ item.quantity }} {# item.unit #}
+                                {% endif %}
+                            </td>
+                            <td class="text-end">{{ item.total | money(invoice.currency) }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
 
             <div class="row">
                 <div class="col-md-4 offset-md-8">

@@ -105,6 +105,61 @@
         </div>
     </form>
 </div>
+
+{% set company_summary_preview = admin.invoice_get_company_summary_preview_by_company({ 'company_id': company_entity.id }) %}
+<div class="card mt-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h3 class="card-title m-0">{{ 'Company summary invoice'|trans }}</h3>
+            {% if company_summary_preview.has_transactions %}
+                <span class="badge bg-primary">{{ company_summary_preview.transactions_count }} {{ 'transactions'|trans }}</span>
+            {% endif %}
+        </div>
+
+        {% if company_summary_preview.has_transactions %}
+            <p class="text-muted mb-2">
+                {{ 'Linked clients'|trans }}: {{ company_summary_preview.linked_clients_count }} |
+                {{ 'Total'|trans }}: {{ mf.currency_format(company_summary_preview.total, company_summary_preview.currency) }}
+            </p>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped">
+                    <thead>
+                    <tr>
+                        <th>{{ 'Client'|trans }}</th>
+                        <th>{{ 'Unpaid total'|trans }}</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for company_client in company_summary_preview.clients %}
+                        <tr>
+                            <td>{{ company_client.name }} ({{ company_client.email }})</td>
+                            <td>{{ mf.currency_format(company_client.unpaid_total, company_summary_preview.currency) }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <a class="btn btn-outline-primary api-link mt-2"
+               href="{{ 'api/admin/invoice/generate_company_summary_by_company'|link({ 'company_id': company_entity.id, 'CSRFToken': CSRFToken }) }}"
+               data-api-reload="1"
+               data-api-confirm="{{ 'Generate company summary invoice for'|trans }} {{ company_summary_preview.transactions_count }} {{ 'transactions'|trans }} ({{ mf.currency_format(company_summary_preview.total, company_summary_preview.currency) }})?">
+                <svg class="icon">
+                    <use xlink:href="#plus" />
+                </svg>
+                {{ 'New company summary invoice'|trans }}
+            </a>
+        {% else %}
+            <p class="text-muted mb-2">{{ company_summary_preview.message|default('No summary transactions found.'|trans) }}</p>
+            <button class="btn btn-outline-secondary" type="button" disabled>
+                <svg class="icon">
+                    <use xlink:href="#plus" />
+                </svg>
+                {{ 'New company summary invoice'|trans }}
+            </button>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}
 
 {% block js %}
