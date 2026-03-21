@@ -4,7 +4,7 @@
 
 {% set active_menu = 'company' %}
 
-{% block meta_title %}{{ company.name }}{% endblock %}
+{% block meta_title %}{{ company_entity.name }}{% endblock %}
 
 {% block breadcrumbs %}
 <ol class="breadcrumb">
@@ -18,15 +18,16 @@
     <li class="breadcrumb-item">
         <a href="{{ 'company'|alink }}">{{ 'Companies'|trans }}</a>
     </li>
-    <li class="breadcrumb-item active" aria-current="page">{{ company.name }}</li>
+    <li class="breadcrumb-item active" aria-current="page">{{ company_entity.name }}</li>
 </ol>
 {% endblock %}
 
 {% block content %}
 <div class="card">
-    <form method="post" action="{{ 'api/admin/company/update'|link }}" class="api-form" data-api-msg="{{ 'Company updated'|trans }}">
+    <form id="company-manage-form" method="post" action="{{ 'api/admin/company/update'|link }}" class="api-form" data-api-msg="{{ 'Company updated'|trans }}" autocomplete="off">
         <input type="hidden" name="CSRFToken" value="{{ CSRFToken }}"/>
-        <input type="hidden" name="id" value="{{ company.id }}"/>
+        <input type="hidden" name="id" value="{{ company_entity.id }}"/>
+        <input type="hidden" id="company-country-db" value="{{ company_entity.country|default('')|e('html_attr') }}"/>
 
         <div class="card-body">
             <h3 class="card-title">{{ 'Edit company details'|trans }}</h3>
@@ -34,68 +35,68 @@
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Name'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="name" value="{{ company.name }}" required>
+                    <input class="form-control" type="text" name="name" value="{{ company_entity.name }}" data-db-value="{{ company_entity.name|default('')|e('html_attr') }}" autocomplete="off" required>
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'VAT Number'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="vat_number" value="{{ company.vat_number }}">
+                    <input class="form-control" type="text" name="vat_number" value="{{ company_entity.vat_number }}" data-db-value="{{ company_entity.vat_number|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Company Number'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="company_number" value="{{ company.company_number }}">
+                    <input class="form-control" type="text" name="company_number" value="{{ company_entity.company_number }}" data-db-value="{{ company_entity.company_number|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Email'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="email" name="email" value="{{ company.email }}">
+                    <input class="form-control" type="email" name="email" value="{{ company_entity.email }}" data-db-value="{{ company_entity.email|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Phone'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="phone" value="{{ company.phone }}">
+                    <input class="form-control" type="text" name="phone" value="{{ company_entity.phone }}" data-db-value="{{ company_entity.phone|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Street'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="street" value="{{ company.street }}">
+                    <input class="form-control" type="text" name="street" value="{{ company_entity.street }}" data-db-value="{{ company_entity.street|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'House number'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="house_number" value="{{ company.house_number }}">
+                    <input class="form-control" type="text" name="house_number" value="{{ company_entity.house_number }}" data-db-value="{{ company_entity.house_number|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Postal code'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="postal_code" value="{{ company.postal_code }}">
+                    <input class="form-control" type="text" name="postal_code" value="{{ company_entity.postal_code }}" data-db-value="{{ company_entity.postal_code|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'City'|trans }}</label>
                 <div class="col">
-                    <input class="form-control" type="text" name="city" value="{{ company.city }}">
+                    <input class="form-control" type="text" name="city" value="{{ company_entity.city }}" data-db-value="{{ company_entity.city|default('')|e('html_attr') }}" autocomplete="off">
                 </div>
             </div>
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Country'|trans }}</label>
                 <div class="col">
-                    {{ mf.selectbox('country', guest.system_countries, company.country, 0, 'Select country'|trans) }}
+                    {{ mf.selectbox('country', guest.system_countries, company_entity.country, 0, 'Select country'|trans) }}
                 </div>
             </div>
         </div>
 
         <div class="card-footer d-flex justify-content-between">
             <a class="btn btn-danger api-link"
-               href="{{ 'api/admin/company/delete'|link({ 'id': company.id, 'CSRFToken': CSRFToken }) }}"
+               href="{{ 'api/admin/company/delete'|link({ 'id': company_entity.id, 'CSRFToken': CSRFToken }) }}"
                data-api-confirm="{{ 'Are you sure?'|trans }}"
                data-api-redirect="{{ 'company'|alink }}">
                 {{ 'Delete'|trans }}
@@ -104,4 +105,32 @@
         </div>
     </form>
 </div>
+{% endblock %}
+
+{% block js %}
+{{ parent() }}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('company-manage-form');
+    if (!form) {
+        return;
+    }
+
+    var applyDbValues = function () {
+        form.querySelectorAll('[data-db-value]').forEach(function (el) {
+            el.value = el.getAttribute('data-db-value') || '';
+        });
+
+        var countrySelect = form.querySelector('select[name="country"]');
+        var countryValue = document.getElementById('company-country-db');
+        if (countrySelect && countryValue) {
+            countrySelect.value = countryValue.value || '';
+        }
+    };
+
+    applyDbValues();
+    window.addEventListener('pageshow', applyDbValues);
+    setTimeout(applyDbValues, 50);
+});
+</script>
 {% endblock %}
