@@ -214,6 +214,7 @@ class Service implements InjectionAwareInterface
         $result['created_at'] = $row['created_at'];
         $result['updated_at'] = $row['updated_at'];
         $result['lines'] = $lines;
+        $result['grouped_client_lines'] = $this->buildGroupedClientLines($lines, $result['currency']);
 
         $result['buyer'] = [
             'first_name' => $row['buyer_first_name'],
@@ -298,6 +299,46 @@ class Service implements InjectionAwareInterface
         }
 
         return $result;
+    }
+
+    private function buildGroupedClientLines(array $lines, string $currency): array
+    {
+        $groups = [];
+        $currentGroupIndex = null;
+
+        foreach ($lines as $line) {
+            $title = trim((string) ($line['title'] ?? ''));
+
+            if (str_starts_with($title, 'User section - ')) {
+                $clientLabel = trim(substr($title, strlen('User section - ')));
+                $groups[] = [
+                    'client_label' => $clientLabel,
+                    'lines' => [],
+                    'subtotal' => 0.0,
+                    'currency' => $currency,
+                ];
+                $currentGroupIndex = count($groups) - 1;
+
+                continue;
+            }
+
+            if ($currentGroupIndex === null) {
+                continue;
+            }
+
+            if (str_starts_with($title, 'Company grand total:')) {
+                continue;
+            }
+
+            $groups[$currentGroupIndex]['lines'][] = $line;
+            $groups[$currentGroupIndex]['subtotal'] += (float) ($line['total'] ?? 0);
+        }
+
+        foreach ($groups as $index => $group) {
+            $groups[$index]['subtotal'] = round((float) $group['subtotal'], 2);
+        }
+
+        return $groups;
     }
 
     public static function onAfterAdminInvoicePaymentReceived(\Box_Event $event)
@@ -1269,43 +1310,127 @@ class Service implements InjectionAwareInterface
         $invoice->buyer_email = $company['email'] ?? $client->email;
         $this->di['db']->store($invoice);
 
-        $invoiceItemService = $this->di['mod_service']('Invoice', 'InvoiceItem');
+        $transactionsByClient = [];
         foreach ($summary['transactions'] as $transaction) {
+            $clientId = (int) $transaction['client_id'];
+            if (!isset($transactionsByClient[$clientId])) {
+                $transactionsByClient[$clientId] = [];
+            }
+            $transactionsByClient[$clientId][] = $transaction;
+        }
+
+        $invoiceItemService = $this->di['mod_service']('Invoice', 'InvoiceItem');
+        $notes = ['Company summary invoice grouped by linked users:'];
+
+        foreach ($summary['clients'] as $linkedClient) {
+            $clientId = (int) $linkedClient['id'];
+            $clientTransactions = $transactionsByClient[$clientId] ?? [];
+            if (empty($clientTransactions)) {
+                continue;
+            }
+
+            $clientTotal = round((float) ($linkedClient['unpaid_total'] ?? 0), 2);
+            $clientIdentity = sprintf('%s (%s)', $linkedClient['name'], $linkedClient['email']);
+
+            // Section header line per user.
             $invoiceItemService->addNew($invoice, [
-                'title' => sprintf(
-                    '%s (%s) - %s',
-                    $transaction['client_name'],
-                    $transaction['client_email'],
-                    $transaction['invoice_serie_nr']
-                ),
-                'price' => $transaction['total'],
+                'title' => sprintf('User section - %s', $clientIdentity),
+                'price' => 0,
                 'quantity' => 1,
                 'taxed' => false,
             ]);
+
+            foreach ($clientTransactions as $transaction) {
+                $sourceItems = $this->di['db']->find('InvoiceItem', 'invoice_id = :invoice_id', [
+                    ':invoice_id' => (int) $transaction['invoice_id'],
+                ]);
+
+                $sourceSubtotal = 0.0;
+                foreach ($sourceItems as $sourceItem) {
+                    if (!$sourceItem instanceof \Model_InvoiceItem) {
+                        continue;
+                    }
+
+                    $quantity = (float) ($sourceItem->quantity ?? 1);
+                    if ($quantity <= 0) {
+                        $quantity = 1;
+                    }
+
+                    $unitPrice = (float) ($sourceItem->price ?? 0);
+                    $lineTotal = $unitPrice * $quantity;
+                    $sourceSubtotal += $lineTotal;
+
+                    $invoiceItemService->addNew($invoice, [
+                        'title' => sprintf(
+                            '  %s | %s | %s',
+                            $transaction['invoice_serie_nr'],
+                            $sourceItem->title,
+                            $clientIdentity
+                        ),
+                        'price' => $unitPrice,
+                        'quantity' => $quantity,
+                        'taxed' => false,
+                    ]);
+
+                    $notes[] = sprintf(
+                        '  - %s | %s | qty %s | unit %s %s',
+                        $transaction['invoice_serie_nr'],
+                        $sourceItem->title,
+                        number_format($quantity, 2, '.', ''),
+                        number_format($unitPrice, 2, '.', ''),
+                        $summary['currency']
+                    );
+                }
+
+                $sourceSubtotal = round($sourceSubtotal, 2);
+                $invoiceTotal = round((float) $transaction['total'], 2);
+                $adjustment = round($invoiceTotal - $sourceSubtotal, 2);
+
+                // Keep totals exact (tax/discount/rounding) while still exposing raw line details above.
+                if (abs($adjustment) >= 0.01) {
+                    $invoiceItemService->addNew($invoice, [
+                        'title' => sprintf('  %s | tax/adjustment | %s', $transaction['invoice_serie_nr'], $clientIdentity),
+                        'price' => $adjustment,
+                        'quantity' => 1,
+                        'taxed' => false,
+                    ]);
+                }
+            }
+
+            $notes[] = sprintf(
+                '%s | subtotal: %s %s',
+                $clientIdentity,
+                number_format($clientTotal, 2, '.', ''),
+                $summary['currency']
+            );
+            foreach ($clientTransactions as $transaction) {
+                $notes[] = sprintf(
+                    '  - %s | %s %s',
+                    $transaction['invoice_serie_nr'],
+                    number_format((float) $transaction['total'], 2, '.', ''),
+                    $summary['currency']
+                );
+            }
         }
 
-        $notes = [
-            'Company summary invoice covering linked users:',
-        ];
-        foreach ($summary['clients'] as $linkedClient) {
-            $notes[] = sprintf(
-                '- %s <%s> | %s',
-                $linkedClient['name'],
-                $linkedClient['email'],
-                $linkedClient['currency'] ?? '-'
-            );
-        }
+        // Explicit company-level total marker line.
+        $invoiceItemService->addNew($invoice, [
+            'title' => sprintf(
+                'Company grand total: %s %s',
+                number_format((float) $summary['total'], 2, '.', ''),
+                $summary['currency']
+            ),
+            'price' => 0,
+            'quantity' => 1,
+            'taxed' => false,
+        ]);
 
         $notes[] = '';
-        $notes[] = 'Included transactions:';
-        foreach ($summary['transactions'] as $transaction) {
-            $notes[] = sprintf(
-                '- %s - %s - %s',
-                $transaction['invoice_serie_nr'],
-                $transaction['client_name'],
-                number_format((float) $transaction['total'], 2, '.', '') . ' ' . $summary['currency']
-            );
-        }
+        $notes[] = sprintf(
+            'Company grand total: %s %s',
+            number_format((float) $summary['total'], 2, '.', ''),
+            $summary['currency']
+        );
 
         $invoice->notes = trim(($invoice->notes ?? '') . PHP_EOL . implode(PHP_EOL, $notes));
         $invoice->updated_at = date('Y-m-d H:i:s');
