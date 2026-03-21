@@ -238,9 +238,9 @@ class Service implements InjectionAwareInterface
             'company_vat' => $row['seller_company_vat'],
             'company_number' => $row['seller_company_number'],
             'address' => !empty($row['seller_address']) ? $row['seller_address'] : trim($c['address_1'] . ' ' . $c['address_2'] . ' ' . $c['address_3']),
-            'address_1' => !empty($row['seller_address_1']) ? $row['seller_address_1'] : $c['address_1'],
-            'address_2' => !empty($row['seller_address_2']) ? $row['seller_address_2'] : $c['address_2'],
-            'address_3' => !empty($row['seller_address_3']) ? $row['seller_address_3'] : $c['address_3'],
+            'address_1' => !empty($row['seller_address_1'] ?? null) ? $row['seller_address_1'] : $c['address_1'],
+            'address_2' => !empty($row['seller_address_2'] ?? null) ? $row['seller_address_2'] : $c['address_2'],
+            'address_3' => !empty($row['seller_address_3'] ?? null) ? $row['seller_address_3'] : $c['address_3'],
             'phone' => !empty($row['seller_phone']) ? $row['seller_phone'] : $c['tel'],
             'email' => !empty($row['seller_email']) ? $row['seller_email'] : $c['email'],
             'account_number' => !empty($c['account_number']) ? $c['account_number'] : null,
@@ -610,9 +610,6 @@ class Service implements InjectionAwareInterface
         $model->seller_company_vat = $sellerVat;
         $model->seller_company_number = $sellerNumber;
         $model->seller_address = trim("{$sellerAddress1} {$sellerAddress2} {$sellerAddress3}");
-        $model->seller_address_1 = $sellerAddress1;
-        $model->seller_address_2 = $sellerAddress2;
-        $model->seller_address_3 = $sellerAddress3;
         $model->seller_phone = $sellerPhone;
         $model->seller_email = $sellerEmail;
 
