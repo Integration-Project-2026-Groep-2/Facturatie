@@ -100,41 +100,43 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4">
-                    <div class="card">
-                        <div class="card-body">
-                            <h4>{{ 'Billing & Delivery address'|trans }}</h4>
-                            <dl class="row">
-                                {% if buyer.first_name or buyer.last_name %}
-                                    <dt class="col-sm-6">{{ 'Name'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
-                                {% endif %}
-                                {% if buyer.company %}
-                                    <dt class="col-sm-6">{{ 'Company'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.company }}</dd>
-                                {% endif %}
-                                {% if buyer.company_number %}
-                                    <dt class="col-sm-6">{{ 'Company number'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.company_number }}</dd>
-                                {% endif %}
-                                {% if buyer.company_vat %}
-                                    <dt class="col-sm-6">{{ 'Company VAT'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.company_vat }}</dd>
-                                {% endif %}
-                                {% if buyer.address %}
-                                    <dt class="col-sm-6">{{ 'Address'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.address }}</dd>
-                                    <dd class="col-sm-6">{{ buyer.city }}, {{ buyer.state }}</dd>
-                                    <dd class="col-sm-6">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
-                                {% endif %}
-                                {% if buyer.phone %}
-                                    <dt class="col-sm-6">{{ 'Phone'|trans }}:</dt>
-                                    <dd class="col-sm-6">{{ buyer.phone }}</dd>
-                                {% endif %}
-                            </dl>
+                {% if invoice.grouped_client_lines is not defined or invoice.grouped_client_lines|length == 0 %}
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h4>{{ 'Billing & Delivery address'|trans }}</h4>
+                                <dl class="row">
+                                    {% if buyer.first_name or buyer.last_name %}
+                                        <dt class="col-sm-6">{{ 'Name'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
+                                    {% endif %}
+                                    {% if buyer.company %}
+                                        <dt class="col-sm-6">{{ 'Company'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.company }}</dd>
+                                    {% endif %}
+                                    {% if buyer.company_number %}
+                                        <dt class="col-sm-6">{{ 'Company number'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.company_number }}</dd>
+                                    {% endif %}
+                                    {% if buyer.company_vat %}
+                                        <dt class="col-sm-6">{{ 'Company VAT'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.company_vat }}</dd>
+                                    {% endif %}
+                                    {% if buyer.address %}
+                                        <dt class="col-sm-6">{{ 'Address'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.address }}</dd>
+                                        <dd class="col-sm-6">{{ buyer.city }}, {{ buyer.state }}</dd>
+                                        <dd class="col-sm-6">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
+                                    {% endif %}
+                                    {% if buyer.phone %}
+                                        <dt class="col-sm-6">{{ 'Phone'|trans }}:</dt>
+                                        <dd class="col-sm-6">{{ buyer.phone }}</dd>
+                                    {% endif %}
+                                </dl>
+                            </div>
                         </div>
                     </div>
-                </div>
+                {% endif %}
             </div>
 
             {% if invoice.text_1 %}

@@ -142,46 +142,48 @@
                                 </div>
                             </div>
 
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="well small">
-                                        <h5>{{ 'Client'|trans }}</h5>
-                                        <dl class="row">
-                                            {% if buyer.first_name|trim or buyer.last_name|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Name'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
-                                            {% endif %}
+                            {% if invoice.grouped_client_lines is not defined or invoice.grouped_client_lines|length == 0 %}
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="well small">
+                                            <h5>{{ 'Client'|trans }}</h5>
+                                            <dl class="row">
+                                                {% if buyer.first_name|trim or buyer.last_name|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Name'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.first_name }} {{ buyer.last_name }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.company|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Company'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.company }}</dd>
-                                            {% endif %}
+                                                {% if buyer.company|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Company'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.company }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.company_number|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Company number'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.company_number }}</dd>
-                                            {% endif %}
+                                                {% if buyer.company_number|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Company number'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.company_number }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.company_vat|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Company VAT'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.company_vat }}</dd>
-                                            {% endif %}
+                                                {% if buyer.company_vat|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Company VAT'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.company_vat }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.address|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Address'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.address }}</dd>
-                                                <dd class="col-sm-4">{{ buyer.city }}, {{ buyer.state }}</dd>
-                                                <dd class="col-sm-8">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
-                                            {% endif %}
+                                                {% if buyer.address|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Address'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.address }}</dd>
+                                                    <dd class="col-sm-4">{{ buyer.city }}, {{ buyer.state }}</dd>
+                                                    <dd class="col-sm-8">{{ buyer.zip }}, {{ guest.system_countries[buyer.country] }}</dd>
+                                                {% endif %}
 
-                                            {% if buyer.phone|trim %}
-                                                <dt class="col-sm-4 text-muted">{{ 'Phone'|trans }}</dt>
-                                                <dd class="col-sm-8">{{ buyer.phone }}</dd>
-                                            {% endif %}
-                                        </dl>
+                                                {% if buyer.phone|trim %}
+                                                    <dt class="col-sm-4 text-muted">{{ 'Phone'|trans }}</dt>
+                                                    <dd class="col-sm-8">{{ buyer.phone }}</dd>
+                                                {% endif %}
+                                            </dl>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            {% endif %}
                         </div>
 
                         {% if invoice.text_1 %}

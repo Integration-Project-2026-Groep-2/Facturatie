@@ -1453,6 +1453,20 @@ class Service implements InjectionAwareInterface
         return $this->buildCompanySummaryContextByClient($client);
     }
 
+    public function getCompanySummaryPreviewByCompanyId(string $companyId): array
+    {
+        $ownerClient = $this->resolveCompanySummaryOwnerClient($companyId);
+
+        return $this->buildCompanySummaryContextByClient($ownerClient);
+    }
+
+    public function generateCompanySummaryInvoiceByCompanyId(string $companyId): \Model_Invoice
+    {
+        $ownerClient = $this->resolveCompanySummaryOwnerClient($companyId);
+
+        return $this->generateCompanySummaryInvoiceByClient($ownerClient);
+    }
+
     private function buildCompanySummaryContextByClient(\Model_Client $client): array
     {
         $companyId = $client->company_id ?? null;
@@ -1580,6 +1594,24 @@ class Service implements InjectionAwareInterface
         $nr = is_numeric($invoice['nr'] ?? null) ? $invoice['nr'] : ($invoice['id'] ?? '');
 
         return (string) ($invoice['serie'] ?? '') . sprintf('%0' . $invoiceNumberPadding . 's', $nr);
+    }
+
+    private function resolveCompanySummaryOwnerClient(string $companyId): \Model_Client
+    {
+        $companyId = trim($companyId);
+        if ($companyId === '') {
+            throw new InformationException('Company id is missing');
+        }
+
+        $owner = $this->di['db']->findOne('Client', 'company_id = :company_id ORDER BY id ASC', [
+            ':company_id' => $companyId,
+        ]);
+
+        if (!$owner instanceof \Model_Client) {
+            throw new InformationException('No users are linked to this company.');
+        }
+
+        return $owner;
     }
 
     public function processInvoice(array $data)

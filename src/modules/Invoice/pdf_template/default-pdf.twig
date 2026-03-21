@@ -45,6 +45,7 @@
 		</p>
 		</div>
 
+		{% if invoice.grouped_client_lines is not defined or invoice.grouped_client_lines|length == 0 %}
 		<h3 class='ClientInfo'>{{ 'Client'|trans }}</h3>
 		<div class='ClientInfo'>
 		<p>
@@ -56,6 +57,7 @@
 		{% endfor %}
 		</p>
 		</div>
+		{% endif %}
 
 		<div class='Breakdown' style='top: {{top}}px'>
 			{% if invoice.grouped_client_lines is defined and invoice.grouped_client_lines|length > 0 %}
