@@ -64,8 +64,8 @@ class Admin implements \FOSSBilling\InjectionAwareInterface
     public function get_manage(\Box_App $app, string $id)
     {
         $this->di['is_admin_logged'];
-        $company = $this->di['api_admin']->company_get(['id' => $id]);
+        $companyEntity = $this->di['api_admin']->company_get(['id' => $id]);
 
-        return $app->render('mod_company_manage', ['company' => $company]);
+        return $app->render('mod_company_manage', ['company_entity' => $companyEntity]);
     }
 }

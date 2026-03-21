@@ -256,6 +256,26 @@ class Service implements InjectionAwareInterface
         $clientService = $this->di['mod_service']('client');
         if ($client instanceof \Model_Client) {
             $result['client'] = $clientService->toApiArray($client);
+
+            $linkedCompany = $result['client']['linked_company'] ?? null;
+            if (is_array($linkedCompany) && !empty($linkedCompany['name'])) {
+                $sellerAddress1 = trim((string) ($linkedCompany['street'] ?? '') . ' ' . (string) ($linkedCompany['house_number'] ?? ''));
+                $sellerAddress2 = trim((string) ($linkedCompany['postal_code'] ?? '') . ' ' . (string) ($linkedCompany['city'] ?? ''));
+                $sellerAddress3 = trim((string) ($linkedCompany['vat_number'] ?? ''));
+                if ($sellerAddress3 === '') {
+                    $sellerAddress3 = trim((string) ($linkedCompany['country'] ?? ''));
+                }
+
+                $result['seller']['company'] = $linkedCompany['name'];
+                $result['seller']['company_vat'] = $linkedCompany['vat_number'] ?? null;
+                $result['seller']['company_number'] = $linkedCompany['company_number'] ?? null;
+                $result['seller']['address_1'] = $sellerAddress1;
+                $result['seller']['address_2'] = $sellerAddress2;
+                $result['seller']['address_3'] = $sellerAddress3;
+                $result['seller']['address'] = trim($sellerAddress1 . ' ' . $sellerAddress2 . ' ' . $sellerAddress3);
+                $result['seller']['phone'] = $linkedCompany['phone'] ?? null;
+                $result['seller']['email'] = $linkedCompany['email'] ?? null;
+            }
         } else {
             $result['client'] = null;
         }
@@ -560,12 +580,41 @@ class Service implements InjectionAwareInterface
 
         $buyer = $clientService->toApiArray($client);
 
-        $model->seller_company = $seller['name'];
-        $model->seller_company_vat = $seller['vat_number'];
-        $model->seller_company_number = $seller['number'];
-        $model->seller_address = trim("{$seller['address_1']} {$seller['address_2']} {$seller['address_3']}");
-        $model->seller_phone = $seller['tel'];
-        $model->seller_email = $seller['email'];
+        $sellerName = $seller['name'];
+        $sellerVat = $seller['vat_number'];
+        $sellerNumber = $seller['number'];
+        $sellerAddress1 = $seller['address_1'];
+        $sellerAddress2 = $seller['address_2'];
+        $sellerAddress3 = $seller['address_3'];
+        $sellerPhone = $seller['tel'];
+        $sellerEmail = $seller['email'];
+
+        $linkedCompany = $buyer['linked_company'] ?? null;
+        if (is_array($linkedCompany) && !empty($linkedCompany['name'])) {
+            $sellerName = $linkedCompany['name'];
+            $sellerVat = $linkedCompany['vat_number'] ?? null;
+            $sellerNumber = $linkedCompany['company_number'] ?? null;
+            $street = trim((string) ($linkedCompany['street'] ?? ''));
+            $houseNumber = trim((string) ($linkedCompany['house_number'] ?? ''));
+            $sellerAddress1 = trim($street . ' ' . $houseNumber);
+            $sellerAddress2 = trim((string) ($linkedCompany['postal_code'] ?? '') . ' ' . (string) ($linkedCompany['city'] ?? ''));
+            $sellerAddress3 = trim((string) ($linkedCompany['vat_number'] ?? ''));
+            if ($sellerAddress3 === '') {
+                $sellerAddress3 = trim((string) ($linkedCompany['country'] ?? ''));
+            }
+            $sellerPhone = $linkedCompany['phone'] ?? null;
+            $sellerEmail = $linkedCompany['email'] ?? null;
+        }
+
+        $model->seller_company = $sellerName;
+        $model->seller_company_vat = $sellerVat;
+        $model->seller_company_number = $sellerNumber;
+        $model->seller_address = trim("{$sellerAddress1} {$sellerAddress2} {$sellerAddress3}");
+        $model->seller_address_1 = $sellerAddress1;
+        $model->seller_address_2 = $sellerAddress2;
+        $model->seller_address_3 = $sellerAddress3;
+        $model->seller_phone = $sellerPhone;
+        $model->seller_email = $sellerEmail;
 
         $model->buyer_first_name = $buyer['first_name'];
         $model->buyer_last_name = $buyer['last_name'];

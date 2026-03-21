@@ -357,7 +357,7 @@ class Service implements InjectionAwareInterface
                     throw new \FOSSBilling\Exception('Selected company was not found');
                 }
 
-                if ($this->hasCompanyIdentity($companyData)) {
+                if ($this->hasExplicitCompanyPayload($data) && $this->hasCompanyIdentity($companyData)) {
                     $company = $this->upsertCompany($requestedCompanyId, $companyData);
                 }
                 $this->applyCompanyToClient($client, $company);
@@ -857,13 +857,7 @@ class Service implements InjectionAwareInterface
             || array_key_exists('company_phone', $data)
             || array_key_exists('street', $data)
             || array_key_exists('house_number', $data)
-            || array_key_exists('postal_code', $data)
-            || array_key_exists('address_1', $data)
-            || array_key_exists('address_2', $data)
-            || array_key_exists('city', $data)
-            || array_key_exists('state', $data)
-            || array_key_exists('postcode', $data)
-            || array_key_exists('country', $data);
+            || array_key_exists('postal_code', $data);
     }
 
     private function buildCompanyData(array $data, \Model_Client $client): array
@@ -892,6 +886,18 @@ class Service implements InjectionAwareInterface
     private function hasCompanyIdentity(array $companyData): bool
     {
         return $companyData['name'] !== '' || $companyData['vat_number'] !== '';
+    }
+
+    private function hasExplicitCompanyPayload(array $data): bool
+    {
+        return array_key_exists('company', $data)
+            || array_key_exists('company_vat', $data)
+            || array_key_exists('company_number', $data)
+            || array_key_exists('company_email', $data)
+            || array_key_exists('company_phone', $data)
+            || array_key_exists('street', $data)
+            || array_key_exists('house_number', $data)
+            || array_key_exists('postal_code', $data);
     }
 
     private function findExistingCompanyId(array $companyData, ?string $fallbackCompanyId = null): ?string
