@@ -41,19 +41,35 @@ class RabbitMQService
         $this->host = (string) ($config['host'] ?? getenv('RABBITMQ_HOST') ?: 'rabbitmq');
         $this->port = (int) ($config['port'] ?? getenv('RABBITMQ_PORT') ?: 5672);
         $this->user = (string) ($config['user'] ?? getenv('RABBITMQ_USER') ?: getenv('RABBITMQ_DEFAULT_USER') ?: 'devuser');
-        $this->password = (string) ($config['password'] ?? getenv('RABBITMQ_PASSWORD') ?: getenv('RABBITMQ_DEFAULT_PASS') ?: 'devpass');
+        $this->password = (string) ($config['password'] ?? getenv('RABBITMQ_PASSWORD') ?: getenv('RABBITMQ_PASS') ?: getenv('RABBITMQ_DEFAULT_PASS') ?: 'devpass');
         $this->vhost = (string) ($config['vhost'] ?? getenv('RABBITMQ_VHOST') ?: '/');
         $this->exchange = (string) ($config['exchange'] ?? getenv('RABBITMQ_EXCHANGE') ?: 'ehb.events');
 
         $defaultSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_contract.xsd';
+        $defaultHeartbeatSchemaPath = dirname(__DIR__, 2) . '/data/contracts/hearbeat_contract.xsd';
 
         $this->queues = $config['queues'] ?? [
             'facturatie.invoice.finalized' => 'facturatie.invoice.finalized',
+            'facturatie.heartbeat' => 'facturatie.heartbeat',
         ];
 
         $this->schemaPaths = $config['schema_paths'] ?? [
             'facturatie.invoice.finalized' => $defaultSchemaPath,
+            'facturatie.heartbeat' => $defaultHeartbeatSchemaPath,
         ];
+    }
+
+    public function publishHeartbeat(string $serviceId, string $routingKey = 'facturatie.heartbeat', ?\DateTimeInterface $timestamp = null): void
+    {
+        $timestamp ??= new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $root = $dom->createElement('Heartbeat');
+        $root->appendChild($dom->createElement('serviceId', $serviceId));
+        $root->appendChild($dom->createElement('timestamp', $timestamp->format('Y-m-d\TH:i:sP')));
+        $dom->appendChild($root);
+
+        $this->publishXML($routingKey, $dom->saveXML() ?: '');
     }
 
     public function publishXML(string $routingKey, string $xml): void
