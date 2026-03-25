@@ -67,3 +67,18 @@ docker compose up -d
 docker compose logs -f app
 docker compose down
 ```
+
+## Heartbeat publisher
+
+The app container starts a background heartbeat publisher that sends an XML heartbeat every 1 second to RabbitMQ.
+
+- Routing key: `facturatie.heartbeat`
+- Exchange: `ehb.events` (or your `RABBITMQ_EXCHANGE` value)
+- Schema: `src/data/contracts/hearbeat_contract.xsd`
+
+Optional environment variables:
+
+- `HEARTBEAT_ENABLED=1` to enable (set to `0` to disable)
+- `HEARTBEAT_SERVICE_ID=facturatie` to set service identifier
+- `HEARTBEAT_ROUTING_KEY=facturatie.heartbeat` to customize routing key
+- `HEARTBEAT_INTERVAL_MS=1000` to change interval in milliseconds
