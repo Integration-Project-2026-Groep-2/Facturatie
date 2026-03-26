@@ -3,7 +3,6 @@ vendor/
 /src/config.old.php
 !/src/library/FOSSBilling/Config.php
 .env
-compose.yml
 
 # Cache and logs - environment-specific, generated at runtime
 src/data/cache/

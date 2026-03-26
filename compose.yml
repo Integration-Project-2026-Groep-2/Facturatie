@@ -1,0 +1,43 @@
+services:
+    # Combined Web Server (Nginx + PHP-FPM) - Everything baked into the image
+    web:
+        build:
+            context: .
+            dockerfile: docker/php/Dockerfile
+        ports:
+            - "${WEB_PORT:-8080}:80"
+        env_file: .env
+        environment:
+            - DB_HOST=db
+            - RABBITMQ_HOST=rabbitmq
+        depends_on:
+            - db
+            - rabbitmq
+
+    # Database (MariaDB 10.11+)
+    db:
+        build:
+            context: .
+            dockerfile: docker/db/Dockerfile
+        ports:
+            - "3307:3306"
+        environment:
+            MARIADB_DATABASE: ${DB_NAME}
+            MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD}
+            MARIADB_USER: ${DB_USER}
+            MARIADB_PASSWORD: ${DB_PASS}
+        volumes:
+            - db_data:/var/lib/mysql
+
+    # Message Broker (RabbitMQ)
+    rabbitmq:
+        image: rabbitmq:4.0-management
+        ports:
+            - "5672:5672" # AMQP port for app connection
+            - "15672:15672" # Management UI
+        environment:
+            RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+            RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+
+volumes:
+    db_data:
