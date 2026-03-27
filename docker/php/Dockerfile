@@ -41,7 +41,8 @@ COPY docker/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 
 # 8. Create necessary directories with proper permissions
 RUN mkdir -p /var/www/html/data/log \
-    && chmod -R 755 /var/www/html/data \
+    && mkdir -p /var/www/html/data/cache \
+    && chmod -R 777 /var/www/html/data \
     && chown -R www-data:www-data /var/www/html
 
 # 9. Copy startup script

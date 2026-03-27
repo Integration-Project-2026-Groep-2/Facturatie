@@ -6,7 +6,7 @@ FULL_SQL="$SQL_DIR/db-full.sql"
 
 if [ -f "$FULL_SQL" ]; then
   echo "Importing consolidated FOSSBilling dump from $FULL_SQL"
-  mariadb --protocol=socket -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" < "$FULL_SQL"
+  mariadb --protocol=socket -u root -p"$MARIADB_ROOT_PASSWORD" --binary-mode=1 "$MARIADB_DATABASE" < "$FULL_SQL"
   echo "FOSSBilling database initialization completed"
   exit 0
 fi
