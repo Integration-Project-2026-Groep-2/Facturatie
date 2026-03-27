@@ -29,9 +29,6 @@ class RabbitMQService
     private string $exchange;
 
     /** @var array<string, string> */
-    private array $queues;
-
-    /** @var array<string, string> */
     private array $schemaPaths;
 
     public function __construct(?array $config = null)
@@ -43,15 +40,10 @@ class RabbitMQService
         $this->user = (string) ($config['user'] ?? getenv('RABBITMQ_USER') ?: getenv('RABBITMQ_DEFAULT_USER') ?: 'devuser');
         $this->password = (string) ($config['password'] ?? getenv('RABBITMQ_PASSWORD') ?: getenv('RABBITMQ_PASS') ?: getenv('RABBITMQ_DEFAULT_PASS') ?: 'devpass');
         $this->vhost = (string) ($config['vhost'] ?? getenv('RABBITMQ_VHOST') ?: '/');
-        $this->exchange = (string) ($config['exchange'] ?? getenv('RABBITMQ_EXCHANGE') ?: 'ehb.events');
+        $this->exchange = (string) ($config['exchange'] ?? getenv('RABBITMQ_EXCHANGE') ?: 'control_room_topic_exchange');
 
         $defaultSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_contract.xsd';
         $defaultHeartbeatSchemaPath = dirname(__DIR__, 2) . '/data/contracts/hearbeat_contract.xsd';
-
-        $this->queues = $config['queues'] ?? [
-            'facturatie.invoice.finalized' => 'facturatie.invoice.finalized',
-            'facturatie.heartbeat' => 'facturatie.heartbeat',
-        ];
 
         $this->schemaPaths = $config['schema_paths'] ?? [
             'facturatie.invoice.finalized' => $defaultSchemaPath,
@@ -104,12 +96,7 @@ class RabbitMQService
         );
 
         $this->channel = $this->connection->channel();
-        $this->channel->exchange_declare($this->exchange, 'direct', false, true, false);
-
-        foreach ($this->queues as $routingKey => $queueName) {
-            $this->channel->queue_declare($queueName, false, true, false, false);
-            $this->channel->queue_bind($queueName, $this->exchange, $routingKey);
-        }
+        $this->channel->exchange_declare($this->exchange, 'topic', false, true, false);
 
         return $this->channel;
     }

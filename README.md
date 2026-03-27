@@ -62,7 +62,7 @@ docker compose down
 The web container starts a background heartbeat publisher that sends an XML heartbeat every 1 second to RabbitMQ.
 
 - Routing key: `facturatie.heartbeat`
-- Exchange: `ehb.events` (or your `RABBITMQ_EXCHANGE` value)
+- Exchange: `control_room_topic_exchange` (or your `RABBITMQ_EXCHANGE` value)
 - Schema: `src/data/contracts/hearbeat_contract.xsd`
 
 Optional environment variables:
