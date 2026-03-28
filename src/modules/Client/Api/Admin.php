@@ -142,6 +142,8 @@ class Admin extends \Api_Abstract
      */
     public function create($data)
     {
+        $data = $this->normalizeClientPayload($data);
+
         $required = [
             'email' => 'Email required',
             'first_name' => 'First name is required',
@@ -238,6 +240,8 @@ class Admin extends \Api_Abstract
      */
     public function update($data = [])
     {
+        $data = $this->normalizeClientPayload($data);
+
         $required = ['id' => 'Id required'];
         $this->di['validator']->checkRequiredParamsForArray($required, $data);
 
@@ -406,6 +410,43 @@ class Admin extends \Api_Abstract
         $this->di['logger']->info('Removed line %s from client #%s balance for %s', $id, $client_id, $amount);
 
         return true;
+    }
+
+    private function normalizeClientPayload(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            $data[$key] = $this->normalizePayloadValue($value);
+        }
+
+        return $data;
+    }
+
+    private function normalizePayloadValue(mixed $value): mixed
+    {
+        if (!is_array($value) && !is_object($value)) {
+            return $value;
+        }
+
+        if (is_object($value)) {
+            return method_exists($value, '__toString') ? (string) $value : null;
+        }
+
+        $flattened = [];
+        array_walk_recursive($value, static function ($item) use (&$flattened): void {
+            if (is_scalar($item) || $item === null) {
+                $flattened[] = $item;
+            }
+        });
+
+        if ($flattened === []) {
+            return null;
+        }
+
+        if (count($flattened) === 1) {
+            return $flattened[0];
+        }
+
+        return implode(',', array_map(static fn($item): string => (string) $item, array_filter($flattened, static fn($item): bool => $item !== null)));
     }
 
     /**

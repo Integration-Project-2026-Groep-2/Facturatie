@@ -11,12 +11,16 @@
 
 namespace Box\Mod\Client;
 
+use FOSSBilling\FacturatieUserPublisherService;
 use FOSSBilling\InjectionAwareInterface;
 use Ramsey\Uuid\Uuid;
 
 class Service implements InjectionAwareInterface
 {
     protected ?\Pimple\Container $di = null;
+
+    /** @var array<int, string> */
+    private static array $clientStatusBeforeUpdate = [];
 
     public function setDi(\Pimple\Container $di): void
     {
@@ -80,6 +84,104 @@ class Service implements InjectionAwareInterface
             $emailService->sendTemplate($email);
         } catch (\Exception $exc) {
             error_log($exc->getMessage());
+        }
+
+        return true;
+    }
+
+    public static function onAfterAdminCreateClient(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        try {
+            $client = $di['db']->getExistingModelById('Client', $clientId, 'Client not found for outbound user.created sync');
+            $publisher = new FacturatieUserPublisherService($di);
+            $publisher->publishCreated($client);
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'created', $clientId, $exception);
+        }
+
+        return true;
+    }
+
+    public static function onBeforeAdminClientUpdate(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        try {
+            $client = $di['db']->findOne('Client', 'id = ?', [$clientId]);
+            if ($client instanceof \Model_Client) {
+                self::$clientStatusBeforeUpdate[$clientId] = (string) $client->status;
+            }
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'before-update-status-capture', $clientId, $exception);
+        }
+
+        return true;
+    }
+
+    public static function onAfterAdminClientUpdate(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        $previousStatus = self::$clientStatusBeforeUpdate[$clientId] ?? null;
+        unset(self::$clientStatusBeforeUpdate[$clientId]);
+
+        try {
+            $client = $di['db']->getExistingModelById('Client', $clientId, 'Client not found for outbound user.updated sync');
+            $publisher = new FacturatieUserPublisherService($di);
+
+            $isNowDeactivated = in_array((string) $client->status, [\Model_Client::SUSPENDED, \Model_Client::CANCELED], true);
+            $wasDeactivated = $previousStatus !== null && in_array($previousStatus, [\Model_Client::SUSPENDED, \Model_Client::CANCELED], true);
+
+            if ($isNowDeactivated && !$wasDeactivated) {
+                $publisher->publishDeactivated($client);
+
+                return true;
+            }
+
+            $publisher->publishUpdated($client);
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'updated', $clientId, $exception);
+        }
+
+        return true;
+    }
+
+    public static function onBeforeAdminClientDelete(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        try {
+            $client = $di['db']->getExistingModelById('Client', $clientId, 'Client not found for outbound user.deactivated sync');
+            $publisher = new FacturatieUserPublisherService($di);
+            $publisher->publishDeactivated($client);
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'deactivated', $clientId, $exception);
         }
 
         return true;
@@ -1021,5 +1123,18 @@ class Service implements InjectionAwareInterface
         } catch (\Exception $e) {
             error_log($e->getMessage());
         }
+    }
+
+    private static function logUserSyncFailure(\Pimple\Container $di, string $flow, int $clientId, \Throwable $exception): void
+    {
+        $message = sprintf('[facturatie-user-sync] Failed to publish %s for client #%d: %s', $flow, $clientId, $exception->getMessage());
+
+        if (isset($di['logger'])) {
+            $di['logger']->setChannel('application')->err($message);
+
+            return;
+        }
+
+        error_log($message);
     }
 }

@@ -46,10 +46,14 @@ class RabbitMQService
         $defaultSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_contract.xsd';
         $defaultHeartbeatSchemaPath = dirname(__DIR__, 2) . '/data/contracts/hearbeat_contract.xsd';
         $defaultUserSchemaPath = dirname(__DIR__, 2) . '/data/contracts/user_data_contract.xsd';
+        $defaultFacturatieUserSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_user_contract.xsd';
 
         $this->schemaPaths = $config['schema_paths'] ?? [
             'facturatie.invoice.finalized' => $defaultSchemaPath,
             'facturatie.heartbeat' => $defaultHeartbeatSchemaPath,
+            'facturatie.user.created' => $defaultFacturatieUserSchemaPath,
+            'facturatie.user.updated' => $defaultFacturatieUserSchemaPath,
+            'facturatie.user.deactivated' => $defaultFacturatieUserSchemaPath,
             'crm.user.confirmed' => $defaultUserSchemaPath,
             'crm.user.updated' => $defaultUserSchemaPath,
             'crm.user.deactivated' => $defaultUserSchemaPath,

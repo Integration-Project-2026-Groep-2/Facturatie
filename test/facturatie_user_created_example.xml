@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<UserCreated>
+  <facturatieCustomerId>12345</facturatieCustomerId>
+  <registrationId>REG-2026-0001</registrationId>
+  <firstName>Emma</firstName>
+  <lastName>Janssens</lastName>
+  <email>emma.janssens@example.com</email>
+  <phone>+32471234567</phone>
+  <role>COMPANY_CONTACT</role>
+  <gdprConsent>true</gdprConsent>
+  <companyId>4b9a8c6f-3e1d-4f20-9a34-5f8c2e7d9b12</companyId>
+  <createdAt>2026-03-28T10:15:30+00:00</createdAt>
+</UserCreated>

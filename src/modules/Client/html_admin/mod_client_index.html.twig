@@ -336,7 +336,8 @@
                         <div class="form-group mb-3 row">
                             <label class="form-label col-3 col-form-label">{{ 'Company'|trans }}:</label>
                             <div class="col">
-                                <input class="form-control" type="text" name="company" value="{{ request.company }}">
+                                {{ mf.selectbox('company_id', admin.company_get_pairs, request.company_id, 0, 'Select existing company (optional)'|trans) }}
+                                <small class="form-hint">{{ 'Manage company details from the Companies section.'|trans }}</small>
                             </div>
                         </div>
                         <div class="form-group mb-3 row">
