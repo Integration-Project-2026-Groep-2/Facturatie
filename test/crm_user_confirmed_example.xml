@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<UserConfirmed>
+  <id>8a9b2a3e-6d1f-4b58-8c20-2f5f3f5c4d11</id>
+  <email>company.contact@example.com</email>
+  <firstName>Emma</firstName>
+  <lastName>Janssens</lastName>
+  <phone>+32471234567</phone>
+  <role>COMPANY_CONTACT</role>
+  <companyId>4b9a8c6f-3e1d-4f20-9a34-5f8c2e7d9b12</companyId>
+  <badgeCode>BADGE-00123</badgeCode>
+  <isActive>true</isActive>
+  <gdprConsent>true</gdprConsent>
+  <confirmedAt>2026-03-28T10:15:30+00:00</confirmedAt>
+</UserConfirmed>
