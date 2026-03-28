@@ -15,6 +15,7 @@ namespace FOSSBilling;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;
 
 class RabbitMQService
 {
@@ -44,10 +45,14 @@ class RabbitMQService
 
         $defaultSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_contract.xsd';
         $defaultHeartbeatSchemaPath = dirname(__DIR__, 2) . '/data/contracts/hearbeat_contract.xsd';
+        $defaultUserSchemaPath = dirname(__DIR__, 2) . '/data/contracts/user_data_contract.xsd';
 
         $this->schemaPaths = $config['schema_paths'] ?? [
             'facturatie.invoice.finalized' => $defaultSchemaPath,
             'facturatie.heartbeat' => $defaultHeartbeatSchemaPath,
+            'crm.user.confirmed' => $defaultUserSchemaPath,
+            'crm.user.updated' => $defaultUserSchemaPath,
+            'crm.user.deactivated' => $defaultUserSchemaPath,
         ];
     }
 
@@ -79,6 +84,70 @@ class RabbitMQService
         ]);
 
         $this->getChannel()->basic_publish($message, $this->exchange, $routingKey);
+    }
+
+    public function validateXMLForRoutingKey(string $routingKey, string $xml): void
+    {
+        $schemaPath = $this->schemaPaths[$routingKey] ?? null;
+        if ($schemaPath === null) {
+            throw new \InvalidArgumentException(sprintf('No XML schema configured for routing key "%s".', $routingKey));
+        }
+
+        $this->validateXml($xml, $schemaPath);
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    public function declareAndBindQueue(string $queueName, string $routingKey, bool $durable = true, ?string $exchangeName = null, array $arguments = []): void
+    {
+        $channel = $this->getChannel();
+        $table = $arguments === [] ? null : new AMQPTable($arguments);
+        $channel->queue_declare($queueName, false, $durable, false, false, false, $table);
+        $channel->queue_bind($queueName, $exchangeName ?: $this->exchange, $routingKey);
+    }
+
+    public function declareExchange(string $exchangeName, string $type = 'topic', bool $durable = true): void
+    {
+        $this->getChannel()->exchange_declare($exchangeName, $type, false, $durable, false);
+    }
+
+    public function setPrefetchCount(int $prefetchCount): void
+    {
+        if ($prefetchCount < 1) {
+            return;
+        }
+
+        $this->getChannel()->basic_qos(null, $prefetchCount, null);
+    }
+
+    public function consumeQueue(string $queueName, callable $callback, bool $autoAck = false, string $consumerTag = ''): void
+    {
+        $this->getChannel()->basic_consume($queueName, $consumerTag, false, $autoAck, false, false, $callback);
+    }
+
+    /**
+     * @param array<string, mixed> $properties
+     */
+    public function publishRaw(string $exchangeName, string $routingKey, string $body, array $properties = []): void
+    {
+        $defaults = [
+            'content_type' => 'application/xml',
+            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+        ];
+        $message = new AMQPMessage($body, $properties + $defaults);
+        $this->getChannel()->basic_publish($message, $exchangeName, $routingKey);
+    }
+
+    public function waitForMessages(float $timeoutSeconds = 1.0): void
+    {
+        $timeoutSeconds = max(0.0, $timeoutSeconds);
+        $this->getChannel()->wait(null, false, $timeoutSeconds);
+    }
+
+    public function hasCallbacks(): bool
+    {
+        return $this->getChannel()->is_consuming();
     }
 
     public function getChannel(): AMQPChannel
