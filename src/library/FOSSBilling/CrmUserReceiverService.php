@@ -27,6 +27,7 @@ class CrmUserReceiverService
         return match ($routingKey) {
             'crm.user.confirmed' => $this->processConfirmed($xml),
             'crm.user.updated' => $this->processUpdated($xml),
+            'crm.user.deactivated' => $this->processDeactivated($xml),
             default => throw new \InvalidArgumentException(sprintf('Unsupported routing key "%s" for CRM user receiver.', $routingKey)),
         };
     }
@@ -43,6 +44,23 @@ class CrmUserReceiverService
         $payload = $this->parseUpdated($xml);
 
         return $this->upsertClient($payload, true);
+    }
+
+    private function processDeactivated(string $xml): string
+    {
+        $payload = $this->parseDeactivated($xml);
+
+        $client = $this->findClient((string) $payload['id'], (string) $payload['email']);
+        if (!$client instanceof \Model_Client) {
+            return 'not-found';
+        }
+
+        $client->status = \Model_Client::SUSPENDED;
+        $client->custom_5 = (string) $payload['deactivatedAt'];
+        $client->updated_at = date('Y-m-d H:i:s');
+        $this->di['db']->store($client);
+
+        return 'deactivated';
     }
 
     private function upsertClient(array $payload, bool $isUpdateMessage): string
@@ -216,6 +234,17 @@ class CrmUserReceiverService
             'isActive' => $this->requiredBool($xpath, '/UserUpdated/isActive'),
             'gdprConsent' => $this->requiredBool($xpath, '/UserUpdated/gdprConsent'),
             'updatedAt' => $this->requiredValue($xpath, '/UserUpdated/updatedAt'),
+        ];
+    }
+
+    private function parseDeactivated(string $xml): array
+    {
+        $xpath = $this->createXPath($xml);
+
+        return [
+            'id' => $this->requiredValue($xpath, '/UserDeactivated/id'),
+            'email' => $this->requiredValue($xpath, '/UserDeactivated/email'),
+            'deactivatedAt' => $this->requiredValue($xpath, '/UserDeactivated/deactivatedAt'),
         ];
     }
 

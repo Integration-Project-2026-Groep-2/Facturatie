@@ -31,6 +31,7 @@ if (function_exists('pcntl_async_signals')) {
 $exchange = (string) (getenv('CRM_CONTACT_EXCHANGE') ?: 'contact.topic');
 $confirmedQueue = (string) (getenv('CRM_USER_CONFIRMED_QUEUE') ?: 'crm.user.confirmed');
 $updatedQueue = (string) (getenv('CRM_USER_UPDATED_QUEUE') ?: 'crm.user.updated');
+$deactivatedQueue = (string) (getenv('CRM_USER_DEACTIVATED_QUEUE') ?: 'crm.user.deactivated');
 $prefetchCount = max(1, (int) (getenv('CRM_USER_PREFETCH') ?: 10));
 $waitTimeout = max(0.1, (float) (getenv('CRM_USER_WAIT_TIMEOUT_SEC') ?: 1.0));
 $retryExchange = (string) (getenv('CRM_USER_RETRY_EXCHANGE') ?: 'contact.retry');
@@ -59,6 +60,7 @@ while ($running) {
 
             $rabbit->declareAndBindQueue($confirmedQueue, 'crm.user.confirmed', true);
             $rabbit->declareAndBindQueue($updatedQueue, 'crm.user.updated', true);
+            $rabbit->declareAndBindQueue($deactivatedQueue, 'crm.user.deactivated', true);
             $rabbit->declareExchange($retryExchange, 'direct', true);
             $rabbit->declareAndBindQueue($retryQueueConfirmed, $retryRoutingKeyConfirmed, true, $retryExchange, [
                 'x-message-ttl' => $retryDelayMs,
@@ -146,8 +148,9 @@ while ($running) {
 
             $rabbit->consumeQueue($confirmedQueue, $callback);
             $rabbit->consumeQueue($updatedQueue, $callback);
+            $rabbit->consumeQueue($deactivatedQueue, $callback);
 
-            $di['logger']->setChannel('application')->info(sprintf('[crm-user-receiver] Connected to exchange=%s queues=[%s,%s]', $exchange, $confirmedQueue, $updatedQueue));
+            $di['logger']->setChannel('application')->info(sprintf('[crm-user-receiver] Connected to exchange=%s queues=[%s,%s,%s]', $exchange, $confirmedQueue, $updatedQueue, $deactivatedQueue));
         }
 
         if ($rabbit->hasCallbacks()) {

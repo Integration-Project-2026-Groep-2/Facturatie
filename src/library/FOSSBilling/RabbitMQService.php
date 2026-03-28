@@ -52,6 +52,7 @@ class RabbitMQService
             'facturatie.heartbeat' => $defaultHeartbeatSchemaPath,
             'crm.user.confirmed' => $defaultUserSchemaPath,
             'crm.user.updated' => $defaultUserSchemaPath,
+            'crm.user.deactivated' => $defaultUserSchemaPath,
         ];
     }
 
