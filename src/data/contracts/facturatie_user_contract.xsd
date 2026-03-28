@@ -9,11 +9,10 @@
 
   Notes:
   - No targetNamespace to match queue XML payload style used in this project.
-  - gdprConsent is intentionally omitted in these Facturatie messages.
 -->
 <xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
            elementFormDefault="unqualified"
-           version="1.0">
+           version="1.1">
 
   <!-- ============================================================
        SHARED SIMPLE TYPES
@@ -101,6 +100,22 @@
         <xs:element name="isActive"    type="xs:boolean"/>
         <xs:element name="gdprConsent" type="xs:boolean"/>
         <xs:element name="updatedAt"   type="ISO8601DateTimeType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ============================================================
+       SCENARIO 3
+       Queue: facturatie.user.deactivated | durable: true
+       Direction: Facturatie -> CRM
+       Use case: request CRM to deactivate an existing linked contact.
+  ============================================================ -->
+  <xs:element name="UserDeactivated">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="id"            type="UUIDType"/>
+        <xs:element name="email"         type="EmailType"/>
+        <xs:element name="deactivatedAt" type="ISO8601DateTimeType"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>
