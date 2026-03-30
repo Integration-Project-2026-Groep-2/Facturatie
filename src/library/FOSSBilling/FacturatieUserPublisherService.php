@@ -104,7 +104,6 @@ class FacturatieUserPublisherService
             'email' => strtolower((string) $client->email),
             'phone' => $this->nullableString($client->phone),
             'role' => $this->normalizeRole($client->custom_2 ?? null),
-            'gdprConsent' => $this->boolFromCustomField($client->custom_4 ?? null),
             'companyId' => $this->normalizeUuid($client->company_id ?? null),
             'createdAt' => $this->toIso8601($client->created_at ?? null),
         ];
@@ -126,7 +125,6 @@ class FacturatieUserPublisherService
             'role' => $this->normalizeRole($client->custom_2 ?? null),
             'companyId' => $this->normalizeUuid($client->company_id ?? null),
             'isActive' => (string) $client->status === \Model_Client::ACTIVE,
-            'gdprConsent' => $this->boolFromCustomField($client->custom_4 ?? null),
             'updatedAt' => $this->toIso8601($client->updated_at ?? null),
         ];
     }
@@ -143,7 +141,6 @@ class FacturatieUserPublisherService
         $this->appendRequiredElement($dom, $root, 'email', $payload['email']);
         $this->appendOptionalElement($dom, $root, 'phone', $payload['phone']);
         $this->appendRequiredElement($dom, $root, 'role', $payload['role']);
-        $this->appendRequiredElement($dom, $root, 'gdprConsent', $this->boolToXml($payload['gdprConsent']));
         $this->appendOptionalElement($dom, $root, 'companyId', $payload['companyId']);
         $this->appendRequiredElement($dom, $root, 'createdAt', $payload['createdAt']);
 
@@ -170,7 +167,6 @@ class FacturatieUserPublisherService
         $this->appendRequiredElement($dom, $root, 'role', $payload['role']);
         $this->appendOptionalElement($dom, $root, 'companyId', $payload['companyId']);
         $this->appendRequiredElement($dom, $root, 'isActive', $this->boolToXml($payload['isActive']));
-        $this->appendRequiredElement($dom, $root, 'gdprConsent', $this->boolToXml($payload['gdprConsent']));
         $this->appendRequiredElement($dom, $root, 'updatedAt', $payload['updatedAt']);
 
         $dom->appendChild($root);
@@ -268,13 +264,6 @@ class FacturatieUserPublisherService
         }
 
         return (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:sP');
-    }
-
-    private function boolFromCustomField(?string $value): bool
-    {
-        $normalized = filter_var(trim((string) $value), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-
-        return $normalized ?? false;
     }
 
     private function normalizeUuid(?string $value): ?string
