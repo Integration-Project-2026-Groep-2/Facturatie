@@ -195,13 +195,30 @@ class Admin extends \Api_Abstract
     }
 
     /**
-     * Backward-compatible alias for deactivate.
+     * Permanently delete a client from database while sending deactivation message to RabbitMQ.
      *
      * @return bool
      */
     public function delete($data)
     {
-        return $this->deactivate($data);
+        $required = [
+            'id' => 'Client id is missing',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        $client = $this->di['db']->getExistingModelById('Client', $data['id'], 'Client not found');
+
+        // Fire event to trigger deactivation message to RabbitMQ
+        $this->di['events_manager']->fire(['event' => 'onBeforeAdminClientUpdate', 'params' => ['id' => $client->id, 'status' => \Model_Client::SUSPENDED]]);
+
+        // Actually delete from database
+        $this->di['db']->trash($client);
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => ['id' => $client->id]]);
+
+        $this->di['logger']->info('Permanently deleted client #%s', $client->id);
+
+        return true;
     }
 
     /**
@@ -687,13 +704,22 @@ class Admin extends \Api_Abstract
     }
 
     /**
-     * Backward-compatible alias for batch_deactivate.
+     * Permanently delete multiple clients from database while sending deactivation messages.
      *
      * @return bool
      */
     public function batch_delete($data)
     {
-        return $this->batch_deactivate($data);
+        $required = [
+            'ids' => 'IDs not passed',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        foreach ($data['ids'] as $id) {
+            $this->delete(['id' => $id]);
+        }
+
+        return true;
     }
 
     /**

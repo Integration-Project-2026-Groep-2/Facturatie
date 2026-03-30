@@ -152,6 +152,15 @@
                     </svg>
                     <span>{{ 'Deactivate'|trans }}</span>
                 </a>
+                <a class="btn btn-danger api-link" style="opacity: 0.6;"
+                    href="{{ 'api/admin/client/delete'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}"
+                    data-api-confirm="{{ 'Are you sure you want to permanently delete this client from the database? This cannot be undone.'|trans }}"
+                    data-api-redirect="{{ 'client'|alink }}">
+                    <svg class="icon" width="24" height="24" style="color: #dc3545;">
+                        <use xlink:href="#delete" />
+                    </svg>
+                    <span>{{ 'Delete Permanently'|trans }}</span>
+                </a>
             </div>
         </div>
 
