@@ -144,13 +144,13 @@
                     <span>{{ 'Login to client area'|trans }}</span>
                 </a>
                 <a class="btn btn-danger api-link"
-                    href="{{ 'api/admin/client/delete'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}"
-                    data-api-confirm="{{ 'Are you sure?'|trans }}"
+                    href="{{ 'api/admin/client/deactivate'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}"
+                    data-api-confirm="{{ 'Are you sure you want to deactivate this client?'|trans }}"
                     data-api-redirect="{{ 'client'|alink }}">
                     <svg class="icon" width="24" height="24">
                         <use xlink:href="#delete" />
                     </svg>
-                    <span>{{ 'Delete'|trans }}</span>
+                    <span>{{ 'Deactivate'|trans }}</span>
                 </a>
             </div>
         </div>

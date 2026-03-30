@@ -168,28 +168,40 @@ class Admin extends \Api_Abstract
     }
 
     /**
-     * Deletes client from system.
+     * Deactivates client in system (soft delete).
      *
      * @return bool
      */
-    public function delete($data)
+    public function deactivate($data)
     {
         $required = [
             'id' => 'Client id is missing',
         ];
         $this->di['validator']->checkRequiredParamsForArray($required, $data);
 
-        $model = $this->di['db']->getExistingModelById('Client', $data['id'], 'Client not found');
+        $client = $this->di['db']->getExistingModelById('Client', $data['id'], 'Client not found');
 
-        $this->di['events_manager']->fire(['event' => 'onBeforeAdminClientDelete', 'params' => ['id' => $model->id]]);
+        $this->di['events_manager']->fire(['event' => 'onBeforeAdminClientUpdate', 'params' => ['id' => $client->id, 'status' => \Model_Client::SUSPENDED]]);
 
-        $id = $model->id;
-        $this->getService()->remove($model);
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientDelete', 'params' => ['id' => $id]]);
+        $client->status = \Model_Client::SUSPENDED;
+        $client->updated_at = date('Y-m-d H:i:s');
+        $this->di['db']->store($client);
 
-        $this->di['logger']->info('Removed client #%s', $id);
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => ['id' => $client->id]]);
+
+        $this->di['logger']->info('Deactivated client #%s', $client->id);
 
         return true;
+    }
+
+    /**
+     * Backward-compatible alias for deactivate.
+     *
+     * @return bool
+     */
+    public function delete($data)
+    {
+        return $this->deactivate($data);
     }
 
     /**
@@ -656,11 +668,11 @@ class Admin extends \Api_Abstract
     }
 
     /**
-     * Deletes clients with given IDs.
+     * Deactivates clients with given IDs.
      *
      * @return bool
      */
-    public function batch_delete($data)
+    public function batch_deactivate($data)
     {
         $required = [
             'ids' => 'IDs not passed',
@@ -668,10 +680,20 @@ class Admin extends \Api_Abstract
         $this->di['validator']->checkRequiredParamsForArray($required, $data);
 
         foreach ($data['ids'] as $id) {
-            $this->delete(['id' => $id]);
+            $this->deactivate(['id' => $id]);
         }
 
         return true;
+    }
+
+    /**
+     * Backward-compatible alias for batch_deactivate.
+     *
+     * @return bool
+     */
+    public function batch_delete($data)
+    {
+        return $this->batch_deactivate($data);
     }
 
     /**

@@ -1,13 +1,18 @@
-<a class="btn btn-danger d-none" id="batch-delete-selected-btn">
+{% set batchButtonId = button_id|default('batch-delete-selected-btn') %}
+{% set batchButtonText = button_text|default('Delete selected'|trans) %}
+{% set batchConfirmContent = confirm_content|default('Are you sure you want to delete the selected items?'|trans) %}
+{% set batchEmptyContent = empty_content|default('You need to select at least one item to delete'|trans) %}
+
+<a class="btn btn-danger d-none" id="{{ batchButtonId }}">
     <svg class="icon">
         <use xlink:href="#delete"/>
     </svg>
-    {{ 'Delete selected'|trans }}</a>
+    {{ batchButtonText }}</a>
 
 <script>
     document.addEventListener("DOMContentLoaded", function () {
 
-        const deleteBtn = document.getElementById('batch-delete-selected-btn');
+        const deleteBtn = document.getElementById('{{ batchButtonId }}');
         const masterCheckbox = document.querySelector('input.batch-delete-master-checkbox');
         const checkboxes = document.querySelectorAll('input.batch-delete-checkbox');
 
@@ -29,12 +34,12 @@
             deleteBtn.classList.add('d-none');
         }
 
-        $('#batch-delete-selected-btn').on('click', function () {
+        $('#{{ batchButtonId }}').on('click', function () {
             if ($('input.batch-delete-checkbox:checked').length) {
                 Modals.create({
                     type: 'danger',
                     title: "{{ 'Are you sure?'|trans }}",
-                    content: "{{ 'Are you sure you want to delete the selected items?'|trans }}",
+                    content: "{{ batchConfirmContent }}",
                     confirmCallback: function() {
                         var ids = $('input.batch-delete-checkbox:checked').map(function() {
                             return $(this).attr("data-item-id");
@@ -48,7 +53,7 @@
                 Modals.create({
                     type: 'small',
                     title: "{{ 'No items selected'|trans }}",
-                    content: "{{ 'You need to select at least one item to delete'|trans }}",
+                    content: "{{ batchEmptyContent }}",
                 });
             }
         });

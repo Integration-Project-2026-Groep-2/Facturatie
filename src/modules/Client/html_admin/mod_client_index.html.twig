@@ -259,7 +259,7 @@
                                             <use xlink:href="#edit" />
                                         </svg>
                                     </a>
-                                    <a class="btn btn-icon api-link" href="{{ 'api/admin/client/delete'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}" data-api-confirm="{{ 'Are you sure?'|trans }}" data-api-reload="1">
+                                    <a class="btn btn-icon api-link" href="{{ 'api/admin/client/deactivate'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}" data-api-confirm="{{ 'Are you sure you want to deactivate this client?'|trans }}" data-api-reload="1" title="{{ 'Deactivate'|trans }}">
                                         <svg class="icon">
                                             <use xlink:href="#delete" />
                                         </svg>
@@ -277,7 +277,13 @@
 
                 <div class="card-footer d-flex align-items-center justify-content-between">
                     <div>
-                        {{ include('partial_batch_delete.html.twig', { 'action': 'admin/client/batch_delete' }) }}
+                        {{ include('partial_batch_delete.html.twig', {
+                            'action': 'admin/client/batch_deactivate',
+                            'button_text': 'Deactivate selected'|trans,
+                            'confirm_content': 'Are you sure you want to deactivate the selected items?'|trans,
+                            'empty_content': 'You need to select at least one item to deactivate'|trans,
+                            'button_id': 'batch-deactivate-selected-btn'
+                        }) }}
                         {{ include('partial_pagination.html.twig', { 'list': clients, 'url': 'client' }) }}
                     </div>
                     <div>
