@@ -19,7 +19,7 @@ git clone https://github.com/Integration-Project-2026-Groep-2/Facturatie.git
 cd Facturatie
 ```
 
-Copy the following files from `Teams` (Shared) to the specified locations:
+Copy the following files from `ClickUp` (Important Files Page) to the specified locations:
 
 - `.env` in **project root**.
 - `config.php` in **`src`** folder.
@@ -41,7 +41,9 @@ docker compose ps
 ## 3) Create admin user
 
 - Open `http://localhost:${WEB_PORT}/admin` in your browser.
-- Create an admin account with your email and password.
+- Log in with admin account
+    - Email: admin@ehb.be
+    - Password: Fossbilling123
 
 If you see the following message above the dashboard, you can safely ignore it:
 
@@ -52,7 +54,7 @@ Danger! Cron was never executed, please ensure you have configured the cronjob o
 ## Daily workflow
 
 ```bash
-docker compose up -d
+docker compose up -d --build
 docker compose logs -f web
 docker compose down
 ```
@@ -63,7 +65,7 @@ The web container starts a background heartbeat publisher that sends an XML hear
 
 - Routing key: `facturatie.heartbeat`
 - Exchange: `heartbeat.direct` (or your `HEARTBEAT_EXCHANGE` value)
-- Schema: `src/data/contracts/hearbeat_contract.xsd`
+- Schema: `src/data/contracts/heartbeat_contract.xsd`
 
 Optional environment variables:
 
