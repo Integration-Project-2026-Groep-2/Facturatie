@@ -41,7 +41,7 @@ class RabbitMQService
         $this->user = (string) ($config['user'] ?? getenv('RABBITMQ_USER') ?: getenv('RABBITMQ_DEFAULT_USER') ?: 'devuser');
         $this->password = (string) ($config['password'] ?? getenv('RABBITMQ_PASSWORD') ?: getenv('RABBITMQ_PASS') ?: getenv('RABBITMQ_DEFAULT_PASS') ?: 'devpass');
         $this->vhost = (string) ($config['vhost'] ?? getenv('RABBITMQ_VHOST') ?: '/');
-        $this->exchange = (string) ($config['exchange'] ?? getenv('RABBITMQ_EXCHANGE') ?: 'control_room_topic_exchange');
+        $this->exchange = (string) ($config['exchange'] ?? getenv('HEARTBEAT_EXCHANGE') ?: 'heartbeat.direct');
 
         $defaultSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_contract.xsd';
         $defaultHeartbeatSchemaPath = dirname(__DIR__, 2) . '/data/contracts/hearbeat_contract.xsd';

@@ -13,6 +13,7 @@ use FOSSBilling\RabbitMQService;
 
 $serviceId = (string) (getenv('HEARTBEAT_SERVICE_ID') ?: getenv('SERVICE_ID') ?: 'facturatie');
 $routingKey = (string) (getenv('HEARTBEAT_ROUTING_KEY') ?: 'facturatie.heartbeat');
+$heartbeatExchange = trim((string) (getenv('HEARTBEAT_EXCHANGE') ?: ''));
 $intervalMs = (int) (getenv('HEARTBEAT_INTERVAL_MS') ?: 1000);
 $intervalMs = max(100, $intervalMs);
 $intervalMicros = $intervalMs * 1000;
@@ -34,7 +35,9 @@ $rabbit = null;
 while ($running) {
     try {
         if (!$rabbit instanceof RabbitMQService) {
-            $rabbit = new RabbitMQService();
+            $rabbit = new RabbitMQService([
+                'exchange' => $heartbeatExchange !== '' ? $heartbeatExchange : 'heartbeat.direct',
+            ]);
         }
 
         $rabbit->publishHeartbeat($serviceId, $routingKey);
