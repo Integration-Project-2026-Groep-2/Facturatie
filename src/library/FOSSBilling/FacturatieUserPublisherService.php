@@ -49,7 +49,19 @@ class FacturatieUserPublisherService
         $payload = $this->buildCreatedPayload($client);
         $xml = $this->buildCreatedXml($payload);
 
-        $this->rabbit()->publishXML(self::ROUTING_KEY_CREATED, $xml);
+        try {
+            $this->rabbit()->publishXML(self::ROUTING_KEY_CREATED, $xml);
+        } catch (\Throwable $exception) {
+            $this->logError(sprintf(
+                '[facturatie-user-publisher] Failed publish created event (client_id=%s, routing_key=%s, exception=%s, message=%s)',
+                (string) $client->id,
+                self::ROUTING_KEY_CREATED,
+                get_class($exception),
+                $exception->getMessage()
+            ));
+
+            throw $exception;
+        }
     }
 
     public function publishUpdated(\Model_Client $client): bool
@@ -58,7 +70,7 @@ class FacturatieUserPublisherService
 
         $crmUserId = $this->resolveCrmUserId($client);
         if ($crmUserId === null) {
-            $this->logInfo(sprintf('[facturatie-user-publisher] Skip updated publish for client #%s: missing CRM UUID.', $client->id));
+            $this->logWarn(sprintf('[facturatie-user-publisher] Skip updated publish for client #%s: missing CRM UUID.', $client->id));
 
             return false;
         }
@@ -66,7 +78,20 @@ class FacturatieUserPublisherService
         $payload = $this->buildUpdatedPayload($client, $crmUserId);
         $xml = $this->buildUpdatedXml($payload);
 
-        $this->rabbit()->publishXML(self::ROUTING_KEY_UPDATED, $xml);
+        try {
+            $this->rabbit()->publishXML(self::ROUTING_KEY_UPDATED, $xml);
+        } catch (\Throwable $exception) {
+            $this->logError(sprintf(
+                '[facturatie-user-publisher] Failed publish updated event (client_id=%s, crm_user_id=%s, routing_key=%s, exception=%s, message=%s)',
+                (string) $client->id,
+                $crmUserId,
+                self::ROUTING_KEY_UPDATED,
+                get_class($exception),
+                $exception->getMessage()
+            ));
+
+            throw $exception;
+        }
 
         return true;
     }
@@ -77,7 +102,7 @@ class FacturatieUserPublisherService
 
         $crmUserId = $this->resolveCrmUserId($client);
         if ($crmUserId === null) {
-            $this->logInfo(sprintf('[facturatie-user-publisher] Skip deactivated publish for client #%s: missing CRM UUID.', $client->id));
+            $this->logWarn(sprintf('[facturatie-user-publisher] Skip deactivated publish for client #%s: missing CRM UUID.', $client->id));
 
             return false;
         }
@@ -89,7 +114,21 @@ class FacturatieUserPublisherService
         ];
 
         $xml = $this->buildDeactivatedXml($payload);
-        $this->rabbit()->publishXML(self::ROUTING_KEY_DEACTIVATED, $xml);
+
+        try {
+            $this->rabbit()->publishXML(self::ROUTING_KEY_DEACTIVATED, $xml);
+        } catch (\Throwable $exception) {
+            $this->logError(sprintf(
+                '[facturatie-user-publisher] Failed publish deactivated event (client_id=%s, crm_user_id=%s, routing_key=%s, exception=%s, message=%s)',
+                (string) $client->id,
+                $crmUserId,
+                self::ROUTING_KEY_DEACTIVATED,
+                get_class($exception),
+                $exception->getMessage()
+            ));
+
+            throw $exception;
+        }
 
         return true;
     }
@@ -310,7 +349,18 @@ class FacturatieUserPublisherService
         $exchange = $this->userExchange();
         $rabbit = $this->rabbit();
 
-        $rabbit->declareExchange($exchange, 'topic', true);
+        try {
+            $rabbit->declareExchange($exchange, 'topic', true);
+        } catch (\Throwable $exception) {
+            $this->logError(sprintf(
+                '[facturatie-user-publisher] Failed to declare exchange (exchange=%s, exception=%s, message=%s)',
+                $exchange,
+                get_class($exception),
+                $exception->getMessage()
+            ));
+
+            throw $exception;
+        }
 
         $this->topologyDeclared = true;
     }
@@ -326,6 +376,28 @@ class FacturatieUserPublisherService
     {
         if (isset($this->di['logger'])) {
             $this->di['logger']->setChannel('application')->info($message);
+
+            return;
+        }
+
+        error_log($message);
+    }
+
+    private function logWarn(string $message): void
+    {
+        if (isset($this->di['logger'])) {
+            $this->di['logger']->setChannel('application')->warn($message);
+
+            return;
+        }
+
+        error_log($message);
+    }
+
+    private function logError(string $message): void
+    {
+        if (isset($this->di['logger'])) {
+            $this->di['logger']->setChannel('application')->err($message);
 
             return;
         }

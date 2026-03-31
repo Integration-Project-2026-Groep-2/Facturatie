@@ -100,10 +100,23 @@ while ($running) {
                     $rabbit->validateXMLForRoutingKey($routingKey, $body);
                     $result = $receiverService->process($routingKey, $body);
 
-                    $di['logger']->setChannel('application')->info(sprintf('[crm-user-receiver] Processed %s message with result=%s', $routingKey, $result));
+                    $di['logger']->setChannel('application')->info(sprintf(
+                        '[crm-user-receiver] Processed message (routing_key=%s, result=%s, retry_count=%d, delivery_tag=%s)',
+                        $routingKey,
+                        $result,
+                        $retryCount,
+                        (string) $deliveryTag
+                    ));
                     $message->getChannel()->basic_ack($deliveryTag);
                 } catch (\InvalidArgumentException $exception) {
-                    $di['logger']->setChannel('application')->err(sprintf('[crm-user-receiver] Invalid message for %s: %s', $routingKey, $exception->getMessage()));
+                    $di['logger']->setChannel('application')->err(sprintf(
+                        '[crm-user-receiver] Invalid message (routing_key=%s, retry_count=%d, delivery_tag=%s, exception=%s, message=%s)',
+                        $routingKey,
+                        $retryCount,
+                        (string) $deliveryTag,
+                        get_class($exception),
+                        $exception->getMessage()
+                    ));
                     $message->getChannel()->basic_ack($deliveryTag);
                 } catch (MissingCompanyDependencyException $exception) {
                     $nextRetryCount = $retryCount + 1;
@@ -119,7 +132,14 @@ while ($running) {
                             ]),
                         ]);
 
-                        $di['logger']->setChannel('application')->err(sprintf('[crm-user-receiver] Parked %s after %d retries. Missing company_id=%s', $routingKey, $retryCount, $exception->getCompanyId()));
+                        $di['logger']->setChannel('application')->err(sprintf(
+                            '[crm-user-receiver] Parked message after retries (routing_key=%s, retry_count=%d, max_retries=%d, delivery_tag=%s, missing_company_id=%s)',
+                            $routingKey,
+                            $retryCount,
+                            $maxRetryCount,
+                            (string) $deliveryTag,
+                            $exception->getCompanyId()
+                        ));
                         $message->getChannel()->basic_ack($deliveryTag);
 
                         return;
@@ -138,10 +158,25 @@ while ($running) {
                         ]),
                     ]);
 
-                    $di['logger']->setChannel('application')->info(sprintf('[crm-user-receiver] Deferred %s due to missing company_id=%s. retry=%d/%d', $routingKey, $exception->getCompanyId(), $nextRetryCount, $maxRetryCount));
+                    $di['logger']->setChannel('application')->warn(sprintf(
+                        '[crm-user-receiver] Deferred message for retry (routing_key=%s, retry_count=%d, max_retries=%d, retry_queue=%s, delivery_tag=%s, missing_company_id=%s)',
+                        $routingKey,
+                        $nextRetryCount,
+                        $maxRetryCount,
+                        $retryQueue,
+                        (string) $deliveryTag,
+                        $exception->getCompanyId()
+                    ));
                     $message->getChannel()->basic_ack($deliveryTag);
                 } catch (\Throwable $exception) {
-                    $di['logger']->setChannel('application')->err(sprintf('[crm-user-receiver] Processing failure for %s: %s', $routingKey, $exception->getMessage()));
+                    $di['logger']->setChannel('application')->err(sprintf(
+                        '[crm-user-receiver] Processing failure (routing_key=%s, retry_count=%d, delivery_tag=%s, exception=%s, message=%s)',
+                        $routingKey,
+                        $retryCount,
+                        (string) $deliveryTag,
+                        get_class($exception),
+                        $exception->getMessage()
+                    ));
                     $message->getChannel()->basic_nack($deliveryTag, false, false);
                 }
             };
@@ -159,7 +194,11 @@ while ($running) {
     } catch (AMQPTimeoutException) {
         continue;
     } catch (\Throwable $exception) {
-        $di['logger']->setChannel('application')->err('[crm-user-receiver] Receiver loop error: ' . $exception->getMessage());
+        $di['logger']->setChannel('application')->err(sprintf(
+            '[crm-user-receiver] Receiver loop error (exception=%s, message=%s)',
+            get_class($exception),
+            $exception->getMessage()
+        ));
 
         if ($rabbit instanceof RabbitMQService) {
             $rabbit->close();

@@ -52,6 +52,12 @@ class CrmUserReceiverService
 
         $client = $this->findClient((string) $payload['id'], (string) $payload['email']);
         if (!$client instanceof \Model_Client) {
+            $this->logWarn(sprintf(
+                '[crm-user-receiver] Deactivate skipped: client not found (crm_user_id=%s, email=%s)',
+                (string) $payload['id'],
+                (string) $payload['email']
+            ));
+
             return 'not-found';
         }
 
@@ -60,12 +66,27 @@ class CrmUserReceiverService
         $client->updated_at = date('Y-m-d H:i:s');
         $this->di['db']->store($client);
 
+        $this->logInfo(sprintf(
+            '[crm-user-receiver] Deactivated client #%s (crm_user_id=%s, email=%s)',
+            (string) $client->id,
+            (string) $payload['id'],
+            (string) $payload['email']
+        ));
+
         return 'deactivated';
     }
 
     private function upsertClient(array $payload, bool $isUpdateMessage): string
     {
         if ($payload['role'] !== self::TARGET_ROLE) {
+            $this->logWarn(sprintf(
+                '[crm-user-receiver] Ignored user message due to unsupported role (crm_user_id=%s, email=%s, role=%s, expected_role=%s)',
+                (string) $payload['id'],
+                (string) $payload['email'],
+                (string) $payload['role'],
+                self::TARGET_ROLE
+            ));
+
             return 'ignored-role';
         }
 
@@ -73,10 +94,25 @@ class CrmUserReceiverService
         if ($client instanceof \Model_Client) {
             $this->updateExistingClient($client, $payload, $isUpdateMessage);
 
+            $this->logInfo(sprintf(
+                '[crm-user-receiver] Updated existing client #%s (crm_user_id=%s, email=%s, source=%s)',
+                (string) $client->id,
+                (string) $payload['id'],
+                (string) $payload['email'],
+                $isUpdateMessage ? 'crm.user.updated' : 'crm.user.confirmed'
+            ));
+
             return 'updated';
         }
 
         $this->createClient($payload);
+
+        $this->logInfo(sprintf(
+            '[crm-user-receiver] Created client from CRM payload (crm_user_id=%s, email=%s, source=%s)',
+            (string) $payload['id'],
+            (string) $payload['email'],
+            $isUpdateMessage ? 'crm.user.updated' : 'crm.user.confirmed'
+        ));
 
         return 'created';
     }
@@ -116,6 +152,14 @@ class CrmUserReceiverService
             ':id' => $client->id,
         ]);
         if ($conflictingClientId) {
+            $this->logError(sprintf(
+                '[crm-user-receiver] Email conflict while updating client #%s (crm_user_id=%s, email=%s, conflicting_client_id=%s)',
+                (string) $client->id,
+                (string) $payload['id'],
+                $normalizedEmail,
+                (string) $conflictingClientId
+            ));
+
             throw new \RuntimeException(sprintf('Cannot update CRM user %s because email %s is already used by client #%s.', $payload['id'], $normalizedEmail, $conflictingClientId));
         }
 
@@ -151,6 +195,13 @@ class CrmUserReceiverService
         $companyId = $payload['companyId'];
 
         if ($companyId !== null && !$this->companyExists($companyId)) {
+            $this->logWarn(sprintf(
+                '[crm-user-receiver] Missing company dependency for CRM user (crm_user_id=%s, email=%s, company_id=%s)',
+                (string) $payload['id'],
+                (string) $payload['email'],
+                (string) $companyId
+            ));
+
             throw new MissingCompanyDependencyException($companyId);
         }
 
@@ -190,8 +241,13 @@ class CrmUserReceiverService
         $existingCompanyId = $this->di['db']->getCell('SELECT id FROM company WHERE id = :id LIMIT 1', [
             ':id' => $companyId,
         ]);
+        $exists = (string) $existingCompanyId === $companyId;
 
-        return (string) $existingCompanyId === $companyId;
+        if (!$exists) {
+            $this->logWarn(sprintf('[crm-user-receiver] Company lookup miss (company_id=%s)', $companyId));
+        }
+
+        return $exists;
     }
 
     private function parseConfirmed(string $xml): array
@@ -296,5 +352,38 @@ class CrmUserReceiverService
     private function generateStrongPassword(): string
     {
         return bin2hex(random_bytes(8)) . 'Aa1!';
+    }
+
+    private function logInfo(string $message): void
+    {
+        if (isset($this->di['logger'])) {
+            $this->di['logger']->setChannel('application')->info($message);
+
+            return;
+        }
+
+        error_log($message);
+    }
+
+    private function logWarn(string $message): void
+    {
+        if (isset($this->di['logger'])) {
+            $this->di['logger']->setChannel('application')->warn($message);
+
+            return;
+        }
+
+        error_log($message);
+    }
+
+    private function logError(string $message): void
+    {
+        if (isset($this->di['logger'])) {
+            $this->di['logger']->setChannel('application')->err($message);
+
+            return;
+        }
+
+        error_log($message);
     }
 }

@@ -104,7 +104,9 @@ class Service implements InjectionAwareInterface
             $publisher = new FacturatieUserPublisherService($di);
             $publisher->publishCreated($client);
         } catch (\Throwable $exception) {
-            self::logUserSyncFailure($di, 'created', $clientId, $exception);
+            self::logUserSyncFailure($di, 'created', $clientId, $exception, [
+                'hook' => 'onAfterAdminCreateClient',
+            ]);
         }
 
         return true;
@@ -126,7 +128,9 @@ class Service implements InjectionAwareInterface
                 self::$clientStatusBeforeUpdate[$clientId] = (string) $client->status;
             }
         } catch (\Throwable $exception) {
-            self::logUserSyncFailure($di, 'before-update-status-capture', $clientId, $exception);
+            self::logUserSyncFailure($di, 'before-update-status-capture', $clientId, $exception, [
+                'hook' => 'onBeforeAdminClientUpdate',
+            ]);
         }
 
         return true;
@@ -160,7 +164,11 @@ class Service implements InjectionAwareInterface
 
             $publisher->publishUpdated($client);
         } catch (\Throwable $exception) {
-            self::logUserSyncFailure($di, 'updated', $clientId, $exception);
+            self::logUserSyncFailure($di, 'updated', $clientId, $exception, [
+                'hook' => 'onAfterAdminClientUpdate',
+                'previous_status' => $previousStatus,
+                'current_status' => isset($client) && $client instanceof \Model_Client ? (string) $client->status : null,
+            ]);
         }
 
         return true;
@@ -181,7 +189,9 @@ class Service implements InjectionAwareInterface
             $publisher = new FacturatieUserPublisherService($di);
             $publisher->publishDeactivated($client);
         } catch (\Throwable $exception) {
-            self::logUserSyncFailure($di, 'deactivated', $clientId, $exception);
+            self::logUserSyncFailure($di, 'deactivated', $clientId, $exception, [
+                'hook' => 'onBeforeAdminClientDelete',
+            ]);
         }
 
         return true;
@@ -1125,9 +1135,26 @@ class Service implements InjectionAwareInterface
         }
     }
 
-    private static function logUserSyncFailure(\Pimple\Container $di, string $flow, int $clientId, \Throwable $exception): void
+    private static function logUserSyncFailure(\Pimple\Container $di, string $flow, int $clientId, \Throwable $exception, array $context = []): void
     {
-        $message = sprintf('[facturatie-user-sync] Failed to publish %s for client #%d: %s', $flow, $clientId, $exception->getMessage());
+        $contextParts = [];
+        foreach ($context as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $contextParts[] = sprintf('%s=%s', $key, (string) $value);
+        }
+
+        $contextSuffix = empty($contextParts) ? '' : ', ' . implode(', ', $contextParts);
+        $message = sprintf(
+            '[facturatie-user-sync] Failed to publish %s for client #%d (exception=%s, message=%s%s)',
+            $flow,
+            $clientId,
+            get_class($exception),
+            $exception->getMessage(),
+            $contextSuffix
+        );
 
         if (isset($di['logger'])) {
             $di['logger']->setChannel('application')->err($message);
