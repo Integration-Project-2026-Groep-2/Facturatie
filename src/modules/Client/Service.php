@@ -99,6 +99,12 @@ class Service implements InjectionAwareInterface
             return true;
         }
 
+        if (self::shouldSkipOutboundUserPublish($params)) {
+            self::logUserSyncSkip($di, 'created', $clientId, $params, 'onAfterAdminCreateClient');
+
+            return true;
+        }
+
         try {
             $client = $di['db']->getExistingModelById('Client', $clientId, 'Client not found for outbound user.created sync');
             $publisher = new FacturatieUserPublisherService($di);
@@ -143,6 +149,13 @@ class Service implements InjectionAwareInterface
         $clientId = isset($params['id']) ? (int) $params['id'] : 0;
 
         if ($clientId < 1) {
+            return true;
+        }
+
+        if (self::shouldSkipOutboundUserPublish($params)) {
+            unset(self::$clientStatusBeforeUpdate[$clientId]);
+            self::logUserSyncSkip($di, 'updated', $clientId, $params, 'onAfterAdminClientUpdate');
+
             return true;
         }
 
@@ -792,7 +805,20 @@ class Service implements InjectionAwareInterface
     {
         $this->di['events_manager']->fire(['event' => 'onBeforeAdminCreateClient', 'params' => $data]);
         $client = $this->createClient($data);
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminCreateClient', 'params' => ['id' => $client->id, 'password' => $data['password']]]);
+        $eventParams = [
+            'id' => $client->id,
+            'password' => $data['password'] ?? null,
+        ];
+
+        if (array_key_exists('sync_origin', $data)) {
+            $eventParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $eventParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminCreateClient', 'params' => $eventParams]);
         $this->di['logger']->info('Created new client #%s', $client->id);
 
         return $client->id;
@@ -1158,6 +1184,57 @@ class Service implements InjectionAwareInterface
 
         if (isset($di['logger'])) {
             $di['logger']->setChannel('application')->err($message);
+
+            return;
+        }
+
+        error_log($message);
+    }
+
+    private static function shouldSkipOutboundUserPublish(array $params): bool
+    {
+        if (self::isTruthy($params['suppress_user_topic_publish'] ?? null)) {
+            return true;
+        }
+
+        $origin = strtolower((string) ($params['sync_origin'] ?? ''));
+
+        return $origin === 'crm';
+    }
+
+    private static function isTruthy($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value === 1;
+        }
+
+        if (is_string($value)) {
+            return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+        }
+
+        return false;
+    }
+
+    private static function logUserSyncSkip(\Pimple\Container $di, string $flow, int $clientId, array $params, string $hook): void
+    {
+        $origin = (string) ($params['sync_origin'] ?? '');
+        $suppressed = self::isTruthy($params['suppress_user_topic_publish'] ?? null) ? 'true' : 'false';
+
+        $message = sprintf(
+            '[facturatie-user-sync] Skipped %s publish for client #%d (hook=%s, origin=%s, suppress_user_topic_publish=%s)',
+            $flow,
+            $clientId,
+            $hook,
+            $origin === '' ? 'unknown' : $origin,
+            $suppressed
+        );
+
+        if (isset($di['logger'])) {
+            $di['logger']->setChannel('application')->info($message);
 
             return;
         }
