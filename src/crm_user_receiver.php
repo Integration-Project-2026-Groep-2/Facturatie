@@ -29,21 +29,21 @@ if (function_exists('pcntl_async_signals')) {
 }
 
 $exchange = (string) (getenv('CRM_CONTACT_EXCHANGE') ?: 'contact.topic');
-$confirmedQueue = (string) (getenv('CRM_USER_CONFIRMED_QUEUE') ?: 'crm.user.confirmed');
-$updatedQueue = (string) (getenv('CRM_USER_UPDATED_QUEUE') ?: 'crm.user.updated');
-$deactivatedQueue = (string) (getenv('CRM_USER_DEACTIVATED_QUEUE') ?: 'crm.user.deactivated');
+$confirmedQueue = (string) (getenv('CRM_USER_CONFIRMED_QUEUE') ?: 'facturatie.user.confirmed');
+$updatedQueue = (string) (getenv('CRM_USER_UPDATED_QUEUE') ?: 'facturatie.user.updated');
+$deactivatedQueue = (string) (getenv('CRM_USER_DEACTIVATED_QUEUE') ?: 'facturatie.user.deactivated');
 $prefetchCount = max(1, (int) (getenv('CRM_USER_PREFETCH') ?: 10));
 $waitTimeout = max(0.1, (float) (getenv('CRM_USER_WAIT_TIMEOUT_SEC') ?: 1.0));
 $retryExchange = (string) (getenv('CRM_USER_RETRY_EXCHANGE') ?: 'contact.retry');
 $retryRoutingKeyConfirmed = (string) (getenv('CRM_USER_RETRY_CONFIRMED_ROUTING_KEY') ?: 'crm.user.retry.confirmed');
 $retryRoutingKeyUpdated = (string) (getenv('CRM_USER_RETRY_UPDATED_ROUTING_KEY') ?: 'crm.user.retry.updated');
-$retryQueueConfirmed = (string) (getenv('CRM_USER_RETRY_CONFIRMED_QUEUE') ?: 'crm.user.confirmed.retry');
-$retryQueueUpdated = (string) (getenv('CRM_USER_RETRY_UPDATED_QUEUE') ?: 'crm.user.updated.retry');
+$retryQueueConfirmed = (string) (getenv('CRM_USER_RETRY_CONFIRMED_QUEUE') ?: 'facturatie.user.confirmed.retry');
+$retryQueueUpdated = (string) (getenv('CRM_USER_RETRY_UPDATED_QUEUE') ?: 'facturatie.user.updated.retry');
 $retryDelayMs = max(1000, (int) (getenv('CRM_USER_RETRY_DELAY_MS') ?: 30000));
 $maxRetryCount = max(1, (int) (getenv('CRM_USER_MAX_RETRIES') ?: 10));
 $parkingExchange = (string) (getenv('CRM_USER_PARKING_EXCHANGE') ?: 'contact.parking');
-$parkingQueueConfirmed = (string) (getenv('CRM_USER_PARKING_CONFIRMED_QUEUE') ?: 'crm.user.confirmed.parking');
-$parkingQueueUpdated = (string) (getenv('CRM_USER_PARKING_UPDATED_QUEUE') ?: 'crm.user.updated.parking');
+$parkingQueueConfirmed = (string) (getenv('CRM_USER_PARKING_CONFIRMED_QUEUE') ?: 'facturatie.user.confirmed.parking');
+$parkingQueueUpdated = (string) (getenv('CRM_USER_PARKING_UPDATED_QUEUE') ?: 'facturatie.user.updated.parking');
 $parkingRoutingPrefix = (string) (getenv('CRM_USER_PARKING_ROUTING_PREFIX') ?: 'crm.user.parking');
 
 $di['logger']->setChannel('application')->info('[crm-user-receiver] Starting CRM user receiver process');
