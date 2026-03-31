@@ -140,6 +140,8 @@ class CrmUserReceiverService
         $clientService = $this->di['mod_service']('client');
         $createData = $this->buildClientWriteData($payload, false);
         $createData['password'] = $this->generateStrongPassword();
+        $createData['sync_origin'] = 'crm';
+        $createData['suppress_user_topic_publish'] = true;
 
         $clientService->adminCreateClient($createData);
     }

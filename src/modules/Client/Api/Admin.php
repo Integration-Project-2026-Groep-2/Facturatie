@@ -187,7 +187,16 @@ class Admin extends \Api_Abstract
         $client->updated_at = date('Y-m-d H:i:s');
         $this->di['db']->store($client);
 
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => ['id' => $client->id]]);
+        $afterUpdateParams = ['id' => $client->id];
+        if (array_key_exists('sync_origin', $data)) {
+            $afterUpdateParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $afterUpdateParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => $afterUpdateParams]);
 
         $this->di['logger']->info('Deactivated client #%s', $client->id);
 
@@ -214,7 +223,16 @@ class Admin extends \Api_Abstract
         // Actually delete from database
         $this->di['db']->trash($client);
 
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => ['id' => $client->id]]);
+        $afterUpdateParams = ['id' => $client->id];
+        if (array_key_exists('sync_origin', $data)) {
+            $afterUpdateParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $afterUpdateParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => $afterUpdateParams]);
 
         $this->di['logger']->info('Permanently deleted client #%s', $client->id);
 
@@ -346,7 +364,16 @@ class Admin extends \Api_Abstract
         $client->updated_at = date('Y-m-d H:i:s');
 
         $this->di['db']->store($client);
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => ['id' => $client->id]]);
+        $afterUpdateParams = ['id' => $client->id];
+        if (array_key_exists('sync_origin', $data)) {
+            $afterUpdateParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $afterUpdateParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => $afterUpdateParams]);
 
         $this->di['logger']->info('Updated client #%s profile', $client->id);
 
