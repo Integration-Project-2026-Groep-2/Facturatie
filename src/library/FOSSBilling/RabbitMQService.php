@@ -51,6 +51,7 @@ class RabbitMQService
         $this->schemaPaths = $config['schema_paths'] ?? [
             'facturatie.invoice.finalized' => $defaultSchemaPath,
             'facturatie.heartbeat' => $defaultHeartbeatSchemaPath,
+            'routing.heartbeat' => $defaultHeartbeatSchemaPath,
             'facturatie.user.created' => $defaultFacturatieUserSchemaPath,
             'facturatie.user.updated' => $defaultFacturatieUserSchemaPath,
             'facturatie.user.deactivated' => $defaultFacturatieUserSchemaPath,
@@ -60,7 +61,7 @@ class RabbitMQService
         ];
     }
 
-    public function publishHeartbeat(string $serviceId, string $routingKey = 'facturatie.heartbeat', ?\DateTimeInterface $timestamp = null): void
+    public function publishHeartbeat(string $serviceId, string $routingKey = 'routing.heartbeat', ?\DateTimeInterface $timestamp = null): void
     {
         $timestamp ??= new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
 
