@@ -20,8 +20,8 @@ else
   echo "No seed data file detected (or file is empty); skipping optional seed import"
 fi
 
-# Validate a minimal set of required tables so startup fails fast with a clear message.
-required_tables="setting client"
+# Validate key operational tables so startup fails fast with a clear message.
+required_tables="setting admin admin_group client client_order company currency invoice invoice_item session"
 for table_name in $required_tables; do
   table_exists="$(mariadb --protocol=socket -N -B -u root -p"$MARIADB_ROOT_PASSWORD" "$MARIADB_DATABASE" -e "SHOW TABLES LIKE '$table_name';")"
   if [ "$table_exists" != "$table_name" ]; then
