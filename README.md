@@ -35,8 +35,50 @@ docker compose ps
 
 - You should see 3 services running: web, db, rabbitmq.
 - On first build, the web image may take several minutes.
+- Rebuilds are faster now because Docker context is trimmed and PHP dependencies are cached by `composer.lock`.
 - Check logs with `docker compose logs -f web`.
 - Open `http://localhost:${WEB_PORT}` (default `http://localhost:8080`).
+
+### Build cache behavior
+
+- If only PHP source files change, dependency layers stay cached and rebuilds should be much quicker.
+- If `src/composer.json` or `src/composer.lock` changes, Docker will rebuild the Composer dependency layer.
+- Use `docker compose build --no-cache` only when you need a full clean rebuild.
+
+## Database bootstrap (schema-first)
+
+The database container now expects:
+
+- `docker/db/init/baseline-schema.sql` (required): schema-only SQL (tables, indexes, routines, triggers)
+- `docker/db/init/seed-data.sql` (optional): minimal non-sensitive defaults
+
+Do not commit full local databases. Keep personal and transactional data out of repository SQL files.
+
+### Generate baseline schema from current dump
+
+From project root in PowerShell:
+
+```powershell
+./scripts/generate-baseline-schema.ps1
+```
+
+This script:
+
+- converts `db-full.sql` to UTF-8 if needed,
+- imports it into a temporary MariaDB container,
+- exports schema-only SQL to `docker/db/init/baseline-schema.sql`.
+
+After generation, review `docker/db/init/baseline-schema.sql` and keep `docker/db/init/seed-data.sql` minimal.
+
+### Clean bootstrap test
+
+To verify first-start behavior with a fresh DB volume:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+docker compose logs -f db
+```
 
 ## 3) Create admin user
 
