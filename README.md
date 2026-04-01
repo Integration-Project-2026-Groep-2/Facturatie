@@ -35,8 +35,15 @@ docker compose ps
 
 - You should see 3 services running: web, db, rabbitmq.
 - On first build, the web image may take several minutes.
+- Rebuilds are faster now because Docker context is trimmed and PHP dependencies are cached by `composer.lock`.
 - Check logs with `docker compose logs -f web`.
 - Open `http://localhost:${WEB_PORT}` (default `http://localhost:8080`).
+
+### Build cache behavior
+
+- If only PHP source files change, dependency layers stay cached and rebuilds should be much quicker.
+- If `src/composer.json` or `src/composer.lock` changes, Docker will rebuild the Composer dependency layer.
+- Use `docker compose build --no-cache` only when you need a full clean rebuild.
 
 ## Database bootstrap (schema-first)
 

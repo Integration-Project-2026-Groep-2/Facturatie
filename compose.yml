@@ -17,8 +17,8 @@ services:
     # Database (MariaDB 10.11+)
     db:
         build:
-            context: .
-            dockerfile: docker/db/Dockerfile
+            context: docker/db
+            dockerfile: Dockerfile
         ports:
             - "3307:3306"
         environment:
