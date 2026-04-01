@@ -11,6 +11,7 @@
 
 namespace Box\Mod\Company;
 
+use FOSSBilling\FacturatieCompanyPublisherService;
 use FOSSBilling\InjectionAwareInterface;
 use Ramsey\Uuid\Uuid;
 
@@ -112,12 +113,19 @@ class Service implements InjectionAwareInterface
             ]
         );
 
+        $this->tryPublishCreated(array_merge($payload, [
+            'id' => $companyId,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]));
+
         return $companyId;
     }
 
     public function update(array $company, array $data): bool
     {
         $payload = $this->buildPayload($data, $company);
+        $now = date('Y-m-d H:i:s');
 
         $this->di['db']->exec(
             'UPDATE company SET name = :name, vat_number = :vat_number, company_number = :company_number, email = :email, phone = :phone, street = :street, house_number = :house_number, city = :city, postal_code = :postal_code, country = :country, updated_at = :updated_at WHERE id = :id',
@@ -133,9 +141,14 @@ class Service implements InjectionAwareInterface
                 ':city' => $payload['city'],
                 ':postal_code' => $payload['postal_code'],
                 ':country' => $payload['country'],
-                ':updated_at' => date('Y-m-d H:i:s'),
+                ':updated_at' => $now,
             ]
         );
+
+        $this->tryPublishUpdated(array_merge($payload, [
+            'id' => $company['id'],
+            'updated_at' => $now,
+        ]));
 
         return true;
     }
@@ -147,8 +160,57 @@ class Service implements InjectionAwareInterface
         ]);
         $this->di['db']->exec('DELETE FROM company WHERE id = :id', [':id' => $company['id']]);
 
+        $this->tryPublishDeactivated($company);
+
         return true;
     }
+
+    // ─── RabbitMQ publicatie ──────────────────────────────────────
+
+    private function tryPublishCreated(array $companyData): void
+    {
+        try {
+            $publisher = new FacturatieCompanyPublisherService($this->di);
+            $publisher->publishCreated($companyData);
+        } catch (\Throwable $exception) {
+            $this->logPublishError('created', $companyData, $exception);
+        }
+    }
+
+    private function tryPublishUpdated(array $companyData): void
+    {
+        try {
+            $publisher = new FacturatieCompanyPublisherService($this->di);
+            $publisher->publishUpdated($companyData);
+        } catch (\Throwable $exception) {
+            $this->logPublishError('updated', $companyData, $exception);
+        }
+    }
+
+    private function tryPublishDeactivated(array $companyData): void
+    {
+        try {
+            $publisher = new FacturatieCompanyPublisherService($this->di);
+            $publisher->publishDeactivated($companyData);
+        } catch (\Throwable $exception) {
+            $this->logPublishError('deactivated', $companyData, $exception);
+        }
+    }
+
+    private function logPublishError(string $action, array $companyData, \Throwable $exception): void
+    {
+        if (isset($this->di['logger'])) {
+            $this->di['logger']->setChannel('application')->err(sprintf(
+                '[company-service] RabbitMQ publish failure (action=%s, company_id=%s, exception=%s, message=%s)',
+                $action,
+                (string) ($companyData['id'] ?? 'unknown'),
+                get_class($exception),
+                $exception->getMessage()
+            ));
+        }
+    }
+
+    // ─── Interne hulpmethoden ────────────────────────────────────
 
     private function buildPayload(array $data, array $existing = []): array
     {
