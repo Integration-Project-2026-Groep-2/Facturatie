@@ -1,0 +1,29 @@
+# Git and editor metadata
+.git
+.gitignore
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Local config/secrets
+.env
+
+# Non-build documentation and local tooling
+docs/
+test/
+scripts/
+
+# Runtime/generated app data
+src/data/cache/
+src/data/log/
+src/data/uploads/
+
+# Composer dependencies are installed inside image for better cache and smaller context
+src/vendor/
+
+# Exclude db artifacts from web build context
+docker/db/
