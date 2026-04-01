@@ -2,7 +2,7 @@ param(
     [string]$SourceDumpPath = "db-full.sql",
     [string]$ContainerName = "facturatie-schema-temp-db",
     [string]$DatabaseName = "fossbilling",
-    [string]$BaselineOutPath = "baseline-schema.sql"
+    [string]$BaselineOutPath = "docker/db/init/baseline-schema.sql"
 )
 
 $ErrorActionPreference = "Stop"
@@ -76,7 +76,7 @@ try {
     [System.IO.File]::WriteAllText($baselineOut, ($schemaOutput -join [Environment]::NewLine), $utf8NoBom)
 
     Write-Host "Baseline schema generated at: $baselineOut"
-    Write-Host "Review and commit baseline-schema.sql."
+    Write-Host "Review and commit docker/db/init/baseline-schema.sql."
 } finally {
     $PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
     Write-Host "Cleaning up temporary files/containers..."

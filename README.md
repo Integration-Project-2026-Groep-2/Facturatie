@@ -42,8 +42,8 @@ docker compose ps
 
 The database container now expects:
 
-- `baseline-schema.sql` (required): schema-only SQL (tables, indexes, routines, triggers)
-- `seed-data.sql` (optional): minimal non-sensitive defaults
+- `docker/db/init/baseline-schema.sql` (required): schema-only SQL (tables, indexes, routines, triggers)
+- `docker/db/init/seed-data.sql` (optional): minimal non-sensitive defaults
 
 Do not commit full local databases. Keep personal and transactional data out of repository SQL files.
 
@@ -59,9 +59,9 @@ This script:
 
 - converts `db-full.sql` to UTF-8 if needed,
 - imports it into a temporary MariaDB container,
-- exports schema-only SQL to `baseline-schema.sql`.
+- exports schema-only SQL to `docker/db/init/baseline-schema.sql`.
 
-After generation, review `baseline-schema.sql` and keep `seed-data.sql` minimal.
+After generation, review `docker/db/init/baseline-schema.sql` and keep `docker/db/init/seed-data.sql` minimal.
 
 ### Clean bootstrap test
 

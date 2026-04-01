@@ -219,8 +219,8 @@ docker run -p 80:80 -d my-registry.com/facturatie:v0.9
 
 The DB bootstrap now uses schema-first initialization instead of importing a full local database dump.
 
-- Required file: `baseline-schema.sql`
-- Optional file: `seed-data.sql`
+- Required file: `docker/db/init/baseline-schema.sql`
+- Optional file: `docker/db/init/seed-data.sql`
 
 ### Why this is better
 
@@ -242,8 +242,8 @@ The script converts UTF-16LE dumps to UTF-8, imports into a temporary MariaDB 10
 
 On a clean database volume, the DB init script imports:
 
-1. `baseline-schema.sql` (required)
-2. `seed-data.sql` only if present and non-empty
+1. `docker/db/init/baseline-schema.sql` (required)
+2. `docker/db/init/seed-data.sql` only if present and non-empty
 
 The init script then validates that critical tables exist before marking initialization as complete.
 
