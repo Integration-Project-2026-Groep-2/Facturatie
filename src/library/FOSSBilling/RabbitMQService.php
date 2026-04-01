@@ -170,7 +170,8 @@ class RabbitMQService
         );
 
         $this->channel = $this->connection->channel();
-        $this->channel->exchange_declare($this->exchange, 'topic', false, true, false);
+        $exchangeType = $this->exchange === 'heartbeat.direct' ? 'direct' : 'topic';
+        $this->channel->exchange_declare($this->exchange, $exchangeType, false, true, false);
 
         return $this->channel;
     }
