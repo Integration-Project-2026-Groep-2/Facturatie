@@ -38,6 +38,41 @@ docker compose ps
 - Check logs with `docker compose logs -f web`.
 - Open `http://localhost:${WEB_PORT}` (default `http://localhost:8080`).
 
+## Database bootstrap (schema-first)
+
+The database container now expects:
+
+- `baseline-schema.sql` (required): schema-only SQL (tables, indexes, routines, triggers)
+- `seed-data.sql` (optional): minimal non-sensitive defaults
+
+Do not commit full local databases. Keep personal and transactional data out of repository SQL files.
+
+### Generate baseline schema from current dump
+
+From project root in PowerShell:
+
+```powershell
+./scripts/generate-baseline-schema.ps1
+```
+
+This script:
+
+- converts `db-full.sql` to UTF-8 if needed,
+- imports it into a temporary MariaDB container,
+- exports schema-only SQL to `baseline-schema.sql`.
+
+After generation, review `baseline-schema.sql` and keep `seed-data.sql` minimal.
+
+### Clean bootstrap test
+
+To verify first-start behavior with a fresh DB volume:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+docker compose logs -f db
+```
+
 ## 3) Create admin user
 
 - Open `http://localhost:${WEB_PORT}/admin` in your browser.

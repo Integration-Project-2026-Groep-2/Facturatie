@@ -1,0 +1,8 @@
+-- Optional seed data for first bootstrap only.
+-- Keep this file minimal and non-sensitive.
+--
+-- Typical contents:
+-- - stable app defaults required for startup
+-- - optional patch metadata row(s), if needed for your patch strategy
+--
+-- Leave empty if you do not need seed data.
