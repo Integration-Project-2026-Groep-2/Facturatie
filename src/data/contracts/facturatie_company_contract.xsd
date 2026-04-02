@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Facturatie -> CRM bedrijfssynchronisatie contracten
+  Integration Project 2025/2026 | Groep 2
+
+  Scope:
+  - facturatie.company.created (nieuw bedrijf aangemaakt in FOSSBilling)
+  - facturatie.company.updated (bestaand bedrijf bijgewerkt vanuit Facturatie)
+  - facturatie.company.deactivated (bedrijf gedeactiveerd / soft-delete)
+
+  Opmerkingen:
+  - Geen targetNamespace om overeen te komen met de queue XML payload-stijl in dit project.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="unqualified"
+           version="1.0">
+
+  <!-- ============================================================
+       GEDEELDE SIMPLE TYPES
+  ============================================================ -->
+
+  <xs:simpleType name="UUIDType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ISO8601DateTimeType">
+    <xs:restriction base="xs:dateTime"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="CountryCodeType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Z]{2}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="EmailType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[^@\s]+@[^@\s]+\.[^@\s]+"/>
+      <xs:maxLength value="254"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="BelgianVatNumberType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="BE[0-9]{10}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ============================================================
+       SCENARIO 1
+       Queue: facturatie.company.created | durable: true
+       Richting: Facturatie -> CRM
+       Use case: nieuw bedrijf aangemaakt in FOSSBilling, synchronisatie naar CRM.
+  ============================================================ -->
+  <xs:element name="CompanyCreated">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="name"        type="xs:string"/>
+        <xs:element name="vatNumber"   type="BelgianVatNumberType" minOccurs="0" nillable="true"/>
+        <xs:element name="email"       type="EmailType"            minOccurs="0" nillable="true"/>
+        <xs:element name="phone"       type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="street"      type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="houseNumber" type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="postalCode"  type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="city"        type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="country"     type="CountryCodeType"      minOccurs="0" nillable="true"/>
+        <xs:element name="createdAt"   type="ISO8601DateTimeType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ============================================================
+       SCENARIO 2
+       Queue: facturatie.company.updated | durable: true
+       Richting: Facturatie -> CRM
+       Use case: een bestaand CRM-gekoppeld bedrijf bijwerken met het volledige object.
+  ============================================================ -->
+  <xs:element name="CompanyUpdated">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="id"          type="UUIDType"/>
+        <xs:element name="vatNumber"   type="BelgianVatNumberType" minOccurs="0" nillable="true"/>
+        <xs:element name="name"        type="xs:string"/>
+        <xs:element name="email"       type="EmailType"            minOccurs="0" nillable="true"/>
+        <xs:element name="phone"       type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="street"      type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="houseNumber" type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="postalCode"  type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="city"        type="xs:string"            minOccurs="0" nillable="true"/>
+        <xs:element name="country"     type="CountryCodeType"      minOccurs="0" nillable="true"/>
+        <xs:element name="isActive"    type="xs:boolean"/>
+        <xs:element name="updatedAt"   type="ISO8601DateTimeType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ============================================================
+       SCENARIO 3
+       Queue: facturatie.company.deactivated | durable: true
+       Richting: Facturatie -> CRM
+       Use case: CRM verzoeken om een bestaand gekoppeld bedrijf te deactiveren.
+  ============================================================ -->
+  <xs:element name="CompanyDeactivated">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="id"            type="UUIDType"/>
+        <xs:element name="email"         type="EmailType"/>
+        <xs:element name="deactivatedAt" type="ISO8601DateTimeType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
