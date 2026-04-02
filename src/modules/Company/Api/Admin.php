@@ -75,4 +75,16 @@ class Admin extends \Api_Abstract
 
         return $this->getService()->delete($company);
     }
+
+    public function deactivate($data): bool
+    {
+        $required = [
+            'id' => 'Company ID is missing',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        $company = $this->getService()->get((string) $data['id']);
+
+        return $this->getService()->deactivate($company);
+    }
 }

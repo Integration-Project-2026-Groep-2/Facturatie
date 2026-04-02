@@ -66,6 +66,7 @@ class Service implements InjectionAwareInterface
 
     public function toApiArray(array $data): array
     {
+        $data['is_active'] = (bool) ($data['is_active'] ?? true);
         $data['linked_clients'] = (int) $this->di['db']->getCell('SELECT COUNT(*) FROM client WHERE company_id = :company_id', [
             ':company_id' => $data['id'],
         ]);
@@ -95,7 +96,7 @@ class Service implements InjectionAwareInterface
         $payload = $this->buildPayload($data);
 
         $this->di['db']->exec(
-            'INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, postal_code, country, created_at, updated_at) VALUES (:id, :name, :vat_number, :company_number, :email, :phone, :street, :house_number, :city, :postal_code, :country, :created_at, :updated_at)',
+            'INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, postal_code, country, is_active, created_at, updated_at) VALUES (:id, :name, :vat_number, :company_number, :email, :phone, :street, :house_number, :city, :postal_code, :country, :is_active, :created_at, :updated_at)',
             [
                 ':id' => $companyId,
                 ':name' => $payload['name'],
@@ -108,6 +109,7 @@ class Service implements InjectionAwareInterface
                 ':city' => $payload['city'],
                 ':postal_code' => $payload['postal_code'],
                 ':country' => $payload['country'],
+                ':is_active' => 1,
                 ':created_at' => $now,
                 ':updated_at' => $now,
             ]
@@ -147,6 +149,7 @@ class Service implements InjectionAwareInterface
 
         $this->tryPublishUpdated(array_merge($payload, [
             'id' => $company['id'],
+            'is_active' => (int) ($company['is_active'] ?? 1) === 1,
             'updated_at' => $now,
         ]));
 
@@ -160,6 +163,30 @@ class Service implements InjectionAwareInterface
         ]);
         $this->di['db']->exec('DELETE FROM company WHERE id = :id', [':id' => $company['id']]);
 
+        $this->tryPublishDeactivated($company);
+
+        return true;
+    }
+
+    public function deactivate(array $company): bool
+    {
+        $isActive = (int) ($company['is_active'] ?? 1) === 1;
+        if (!$isActive) {
+            return true;
+        }
+
+        $now = date('Y-m-d H:i:s');
+        $this->di['db']->exec(
+            'UPDATE company SET is_active = :is_active, updated_at = :updated_at WHERE id = :id',
+            [
+                ':id' => $company['id'],
+                ':is_active' => 0,
+                ':updated_at' => $now,
+            ]
+        );
+
+        $company['is_active'] = 0;
+        $company['updated_at'] = $now;
         $this->tryPublishDeactivated($company);
 
         return true;

@@ -178,7 +178,7 @@ class FacturatieCompanyPublisherService
             'postalCode' => $this->nullableString($company['postal_code'] ?? null),
             'city' => $this->nullableString($company['city'] ?? null),
             'country' => $this->normalizeCountryCode($company['country'] ?? null),
-            'isActive' => true,
+            'isActive' => (int) ($company['is_active'] ?? 1) === 1,
             'updatedAt' => $this->toIso8601($company['updated_at'] ?? null),
         ];
     }

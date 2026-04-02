@@ -31,6 +31,13 @@
 
         <div class="card-body">
             <h3 class="card-title">{{ 'Edit company details'|trans }}</h3>
+            <div class="mb-3">
+                {% if company_entity.is_active %}
+                    <span class="badge bg-green-lt">{{ 'Active'|trans }}</span>
+                {% else %}
+                    <span class="badge bg-red-lt">{{ 'Inactive'|trans }}</span>
+                {% endif %}
+            </div>
 
             <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'Name'|trans }}</label>
@@ -95,12 +102,25 @@
         </div>
 
         <div class="card-footer d-flex justify-content-between">
-            <a class="btn btn-danger api-link"
-               href="{{ 'api/admin/company/delete'|link({ 'id': company_entity.id, 'CSRFToken': CSRFToken }) }}"
-               data-api-confirm="{{ 'Are you sure?'|trans }}"
-               data-api-redirect="{{ 'company'|alink }}">
-                {{ 'Delete'|trans }}
-            </a>
+            <div class="d-flex gap-2">
+                {% if company_entity.is_active %}
+                    <a class="btn btn-danger api-link"
+                       href="{{ 'api/admin/company/deactivate'|link({ 'id': company_entity.id, 'CSRFToken': CSRFToken }) }}"
+                       data-api-confirm="{{ 'Are you sure you want to deactivate this company?'|trans }}"
+                       data-api-redirect="{{ 'company'|alink }}">
+                        <svg class="icon" width="24" height="24">
+                            <use xlink:href="#delete" />
+                        </svg>
+                        <span>{{ 'Deactivate'|trans }}</span>
+                    </a>
+                {% endif %}
+                <a class="btn btn-danger api-link"
+                   href="{{ 'api/admin/company/delete'|link({ 'id': company_entity.id, 'CSRFToken': CSRFToken }) }}"
+                   data-api-confirm="{{ 'Are you sure?'|trans }}"
+                   data-api-redirect="{{ 'company'|alink }}">
+                    {{ 'Delete'|trans }}
+                </a>
+            </div>
             <button class="btn btn-primary" type="submit">{{ 'Update'|trans }}</button>
         </div>
     </form>
