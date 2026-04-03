@@ -45,10 +45,8 @@ COPY docker/nginx/default.conf /etc/nginx/conf.d/default.conf
 RUN mkdir -p /etc/supervisor/conf.d
 COPY docker/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 
-# 9. Create necessary directories with proper permissions
-RUN mkdir -p /var/www/html/data/log \
-    && chmod -R 755 /var/www/html/data \
-    && chown -R www-data:www-data /var/www/html
+# 9. Create runtime directories (ownership/permissions are set at container startup)
+RUN mkdir -p /var/www/html/data/log
 
 # 10. Copy startup script
 COPY docker/php/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
