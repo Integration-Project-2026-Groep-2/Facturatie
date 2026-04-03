@@ -20,7 +20,7 @@ return [
         'instance_id' => 'XXXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXXX',
     ],
 
-    'url' => 'facturatie.integration-project-2026-groep-2.my.be/',
+    'url' => getenv('APP_URL') ?: 'localhost:8080/',
 
     'admin_area_prefix' => '/admin',
 
