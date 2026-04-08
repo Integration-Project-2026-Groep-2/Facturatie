@@ -59,7 +59,7 @@
       <xs:sequence>
         <xs:element name="name"        type="xs:string"/>
         <xs:element name="vatNumber"   type="BelgianVatNumberType" minOccurs="0" nillable="true"/>
-        <xs:element name="email"       type="EmailType"            minOccurs="0" nillable="true"/>
+        <xs:element name="email"       type="EmailType"/>
         <xs:element name="phone"       type="xs:string"            minOccurs="0" nillable="true"/>
         <xs:element name="street"      type="xs:string"            minOccurs="0" nillable="true"/>
         <xs:element name="houseNumber" type="xs:string"            minOccurs="0" nillable="true"/>
@@ -83,7 +83,7 @@
         <xs:element name="id"          type="UUIDType"/>
         <xs:element name="vatNumber"   type="BelgianVatNumberType" minOccurs="0" nillable="true"/>
         <xs:element name="name"        type="xs:string"/>
-        <xs:element name="email"       type="EmailType"            minOccurs="0" nillable="true"/>
+        <xs:element name="email"       type="EmailType"/>
         <xs:element name="phone"       type="xs:string"            minOccurs="0" nillable="true"/>
         <xs:element name="street"      type="xs:string"            minOccurs="0" nillable="true"/>
         <xs:element name="houseNumber" type="xs:string"            minOccurs="0" nillable="true"/>
