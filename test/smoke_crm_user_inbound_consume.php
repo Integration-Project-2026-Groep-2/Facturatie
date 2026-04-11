@@ -22,6 +22,8 @@ $di['translate']();
 
 $exchange = getenv('CRM_CONTACT_EXCHANGE') ?: 'contact.topic';
 $probeQueue = 'facturatie.crm.user.inbound.probe.' . bin2hex(random_bytes(4));
+$phpErrorLog = __DIR__ . '/../src/data/log/php_error.log';
+$phpErrorLogStart = is_file($phpErrorLog) ? filesize($phpErrorLog) : 0;
 
 $companyId = '9a33a76e-2c43-407b-8eee-48d141b2de80';
 $crmUserId = '8a9b2a3e-6d1f-4b58-8c20-2f5f3f5c4d11';
@@ -51,6 +53,11 @@ try {
     $deactivatedXml = loadFixture('crm_user_deactivated_sample.xml');
     publishAndProcess($rabbit, $receiverService, $probeQueue, $exchange, 'crm.user.deactivated', $deactivatedXml);
     assertDeactivatedState($db, $crmUserId, $email);
+
+    assertNoGenericErrors($phpErrorLog, $phpErrorLogStart, [
+        'Missing company dependency',
+        'Email address is invalid',
+    ]);
 
     echo 'Inbound smoke test passed: RabbitMQ crm.user.* messages were consumed and applied in FOSSBilling.' . PHP_EOL;
 } finally {
@@ -208,4 +215,23 @@ function fail(string $message): void
 {
     fwrite(STDERR, $message . PHP_EOL);
     exit(1);
+}
+
+function assertNoGenericErrors(string $logFile, int $startOffset, array $needles): void
+{
+    if (!is_file($logFile)) {
+        return;
+    }
+
+    $contents = file_get_contents($logFile);
+    if ($contents === false) {
+        return;
+    }
+
+    $tail = $startOffset > 0 ? substr($contents, $startOffset) : $contents;
+    foreach ($needles as $needle) {
+        if (strpos($tail, $needle) !== false) {
+            fail('Smoke test detected unexpected application error in php_error.log: ' . $needle);
+        }
+    }
 }

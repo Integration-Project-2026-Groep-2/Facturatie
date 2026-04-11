@@ -6,6 +6,9 @@ require_once __DIR__ . '/../src/load.php';
 
 $di['translate']();
 
+$phpErrorLog = __DIR__ . '/../src/data/log/php_error.log';
+$phpErrorLogStart = is_file($phpErrorLog) ? filesize($phpErrorLog) : 0;
+
 $hookService = $di['mod_service']('hook');
 $hookService->batchConnect('Client');
 
@@ -106,4 +109,29 @@ if (!$foundCreated || !$foundUpdated || !$foundDeactivated) {
     exit(1);
 }
 
+assertNoGenericErrors($phpErrorLog, $phpErrorLogStart, [
+    'Missing company dependency',
+    'Email address is invalid',
+]);
+
 echo 'Smoke test passed: admin UI/API client create/update/delete path emits expected CRM sync messages.' . PHP_EOL;
+
+function assertNoGenericErrors(string $logFile, int $startOffset, array $needles): void
+{
+    if (!is_file($logFile)) {
+        return;
+    }
+
+    $contents = file_get_contents($logFile);
+    if ($contents === false) {
+        return;
+    }
+
+    $tail = $startOffset > 0 ? substr($contents, $startOffset) : $contents;
+    foreach ($needles as $needle) {
+        if (strpos($tail, $needle) !== false) {
+            fwrite(STDERR, sprintf('Smoke test detected unexpected application error in php_error.log: %s', $needle) . PHP_EOL);
+            exit(1);
+        }
+    }
+}
