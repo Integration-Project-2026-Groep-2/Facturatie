@@ -20,6 +20,11 @@ if (!file_exists($loadPath)) {
 }
 require_once $loadPath;
 
+$di['translate']();
+
+$phpErrorLog = __DIR__ . '/../src/data/log/php_error.log';
+$phpErrorLogStart = is_file($phpErrorLog) ? filesize($phpErrorLog) : 0;
+
 $exchange = getenv('FACTURATIE_COMPANY_EXCHANGE') ?: 'company.topic';
 $rabbit = new \FOSSBilling\RabbitMQService([
     'exchange' => $exchange,
@@ -41,7 +46,7 @@ $adminApi->setService($service);
 $companyId = $adminApi->create([
     'name' => 'Smoke Test BV ' . time(),
     'vat_number' => 'BE0123456789',
-    'email' => 'smoke-company-' . time() . '@example.com',
+    'email' => 'smoke-company-' . time() . '@gmail.com',
     'phone' => '+3221234567',
     'street' => 'Testlaan',
     'house_number' => '42',
@@ -57,7 +62,7 @@ echo 'Created company id=' . $companyId . PHP_EOL;
 $adminApi->update([
     'id' => $companyId,
     'name' => 'Smoke Test BV Updated',
-    'email' => 'smoke-company-updated-' . time() . '@example.com',
+    'email' => 'smoke-company-updated-' . time() . '@gmail.com',
     'phone' => '+3229876543',
     'street' => 'Nieuwstraat',
     'house_number' => '1',
@@ -123,4 +128,29 @@ if (!$foundCreated || !$foundUpdated || !$foundDeactivated) {
     exit(1);
 }
 
+assertNoGenericErrors($phpErrorLog, $phpErrorLogStart, [
+    'Missing company dependency',
+    'Email address is invalid',
+]);
+
 echo 'Smoke test passed: Company create/update/delete correctly emits facturatie.company.* CRM sync messages.' . PHP_EOL;
+
+function assertNoGenericErrors(string $logFile, int $startOffset, array $needles): void
+{
+    if (!is_file($logFile)) {
+        return;
+    }
+
+    $contents = file_get_contents($logFile);
+    if ($contents === false) {
+        return;
+    }
+
+    $tail = $startOffset > 0 ? substr($contents, $startOffset) : $contents;
+    foreach ($needles as $needle) {
+        if (strpos($tail, $needle) !== false) {
+            fwrite(STDERR, sprintf('Smoke test detected unexpected application error in php_error.log: %s', $needle) . PHP_EOL);
+            exit(1);
+        }
+    }
+}

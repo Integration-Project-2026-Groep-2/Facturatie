@@ -116,6 +116,19 @@ Optional environment variables:
 - `HEARTBEAT_ROUTING_KEY=facturatie.heartbeat` to customize routing key
 - `HEARTBEAT_INTERVAL_MS=1000` to change interval in milliseconds
 
+## Testing and CI/CD
+
+### CI workflow
+
+The `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main`, validates user synchronization in both directions:
+
+- Outbound: FOSSBilling -> RabbitMQ (`facturatie.user.*`)
+- Inbound: RabbitMQ -> FOSSBilling (`crm.user.*`)
+
+### Deployment gating
+
+A separate `.github/workflows/cd.yml` workflow deploys the app only after the CI workflow succeeds on `main`. This ensures all tests pass before any code reaches production.
+
 ## Port notes for infra
 
 - Keep container port `80` as-is (Nginx listens on 80 internally).

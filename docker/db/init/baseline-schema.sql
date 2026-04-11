@@ -440,6 +440,7 @@ CREATE TABLE `company` (
   `city` varchar(100) DEFAULT NULL,
   `postal_code` varchar(32) DEFAULT NULL,
   `country` varchar(2) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
   `created_at` datetime DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),

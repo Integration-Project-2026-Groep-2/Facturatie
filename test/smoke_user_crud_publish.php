@@ -4,6 +4,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/load.php';
 
+$di['translate']();
+
+$phpErrorLog = __DIR__ . '/../src/data/log/php_error.log';
+$phpErrorLogStart = is_file($phpErrorLog) ? filesize($phpErrorLog) : 0;
+
 $hookService = $di['mod_service']('hook');
 $hookService->batchConnect('Client');
 
@@ -17,9 +22,10 @@ $rabbit->declareAndBindQueue($probeQueue, 'facturatie.user.*', true, $exchange);
 
 $adminApi = new \Box\Mod\Client\Api\Admin();
 $adminApi->setDi($di);
+$adminApi->setService($di['mod_service']('client'));
 
 $uuid = '8a9b2a3e-6d1f-4b58-8c20-2f5f3f5c4d11';
-$email = 'copilot.smoke.' . time() . '@example.com';
+$email = 'copilot.smoke.' . time() . '@gmail.com';
 
 $clientId = $adminApi->create([
     'email' => $email,
@@ -104,4 +110,29 @@ if (!$foundCreated || !$foundUpdated || !$foundDeactivated) {
     exit(1);
 }
 
+assertNoGenericErrors($phpErrorLog, $phpErrorLogStart, [
+    'Missing company dependency',
+    'Email address is invalid',
+]);
+
 echo 'Smoke test passed: admin UI/API client create/update/delete path emits expected CRM sync messages.' . PHP_EOL;
+
+function assertNoGenericErrors(string $logFile, int $startOffset, array $needles): void
+{
+    if (!is_file($logFile)) {
+        return;
+    }
+
+    $contents = file_get_contents($logFile);
+    if ($contents === false) {
+        return;
+    }
+
+    $tail = $startOffset > 0 ? substr($contents, $startOffset) : $contents;
+    foreach ($needles as $needle) {
+        if (strpos($tail, $needle) !== false) {
+            fwrite(STDERR, sprintf('Smoke test detected unexpected application error in php_error.log: %s', $needle) . PHP_EOL);
+            exit(1);
+        }
+    }
+}
