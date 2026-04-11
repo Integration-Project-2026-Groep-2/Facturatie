@@ -1,0 +1,143 @@
+name: CI
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    lint-and-unit:
+        runs-on: ubuntu-latest
+        defaults:
+            run:
+                working-directory: src
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up PHP 8.3
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: "8.3"
+                  tools: composer:v2
+                  extensions: mbstring, intl, pdo_mysql, dom, curl, zip
+
+            - name: Install dependencies
+              run: composer install --no-interaction --prefer-dist --no-progress
+
+            - name: Run static analysis
+              run: composer phpstan
+
+            - name: Run coding standards check
+              run: composer cs:check
+
+            - name: Run unit tests
+              run: composer test
+
+    integration:
+        needs: lint-and-unit
+        runs-on: ubuntu-latest
+        services:
+            db:
+                image: mariadb:10.11
+                env:
+                    MARIADB_DATABASE: fossbilling
+                    MARIADB_USER: ${{ secrets.CI_DB_USER }}
+                    MARIADB_PASSWORD: ${{ secrets.CI_DB_PASSWORD }}
+                    MARIADB_ROOT_PASSWORD: ${{ secrets.CI_DB_ROOT_PASSWORD }}
+                ports:
+                    - 3306:3306
+                options: >-
+                    --health-cmd "mariadb-admin ping -h 127.0.0.1 -u$MARIADB_USER -p$MARIADB_PASSWORD"
+                        --health-interval 10s
+                        --health-timeout 5s
+                        --health-retries 15
+            rabbitmq:
+                image: rabbitmq:4.0-management
+                env:
+                    RABBITMQ_DEFAULT_USER: devuser
+                    RABBITMQ_DEFAULT_PASS: ${{ secrets.CI_RABBITMQ_PASSWORD }}
+                ports:
+                    - 5672:5672
+                options: >-
+                    --health-cmd "rabbitmq-diagnostics -q ping"
+                    --health-interval 10s
+                    --health-timeout 5s
+                    --health-retries 15
+        env:
+            DB_HOST: 127.0.0.1
+            DB_PORT: 3306
+            DB_NAME: fossbilling
+            DB_USER: ${{ secrets.CI_DB_USER }}
+            DB_PASS: ${{ secrets.CI_DB_PASSWORD }}
+            RABBITMQ_HOST: 127.0.0.1
+            RABBITMQ_PORT: 5672
+            RABBITMQ_USER: devuser
+            RABBITMQ_PASS: ${{ secrets.CI_RABBITMQ_PASSWORD }}
+            FACTURATIE_USER_EXCHANGE: user.topic
+            FACTURATIE_COMPANY_EXCHANGE: company.topic
+            CRM_CONTACT_EXCHANGE: contact.topic
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Set up PHP 8.3
+              uses: shivammathur/setup-php@v2
+              with:
+                  php-version: "8.3"
+                  tools: composer:v2
+                  extensions: mbstring, intl, pdo_mysql, dom, curl, zip
+
+            - name: Install MariaDB client
+              run: sudo apt-get update && sudo apt-get install -y mariadb-client
+
+            - name: Install dependencies
+              working-directory: src
+              run: composer install --no-interaction --prefer-dist --no-progress
+
+            - name: Wait for service readiness
+              shell: bash
+              run: |
+                  for i in {1..60}; do
+                    if mariadb-admin ping -h "$DB_HOST" -P "$DB_PORT" -u"$DB_USER" -p"$DB_PASS" --silent; then
+                      echo "MariaDB is ready"
+                      break
+                    fi
+                    if [ "$i" -eq 60 ]; then
+                      echo "MariaDB did not become ready in time" >&2
+                      exit 1
+                    fi
+                    sleep 2
+                  done
+
+                  for i in {1..60}; do
+                    if timeout 1 bash -c "</dev/tcp/$RABBITMQ_HOST/$RABBITMQ_PORT" 2>/dev/null; then
+                      echo "RabbitMQ AMQP port is ready"
+                      break
+                    fi
+                    if [ "$i" -eq 60 ]; then
+                      echo "RabbitMQ did not become ready in time" >&2
+                      exit 1
+                    fi
+                    sleep 2
+                  done
+
+            - name: Prepare runtime config
+              run: cp src/config-sample.php src/config.php
+
+            - name: Import baseline schema
+              run: |
+                  mariadb \
+                    -h "$DB_HOST" \
+                    -P "$DB_PORT" \
+                    -u"$DB_USER" \
+                    -p"$DB_PASS" \
+                    "$DB_NAME" < docker/db/init/baseline-schema.sql
+
+            - name: "Outbound flow: FOSSBilling -> RabbitMQ (user CRUD)"
+              run: php test/smoke_user_crud_publish.php
+
+            - name: "Outbound flow: FOSSBilling -> RabbitMQ (company CRUD)"
+              run: php test/smoke_company_crud_publish.php
+
+            - name: "Inbound flow: RabbitMQ -> FOSSBilling (crm.user.*)"
+              run: php test/smoke_crm_user_inbound_consume.php

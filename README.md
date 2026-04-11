@@ -116,6 +116,13 @@ Optional environment variables:
 - `HEARTBEAT_ROUTING_KEY=facturatie.heartbeat` to customize routing key
 - `HEARTBEAT_INTERVAL_MS=1000` to change interval in milliseconds
 
+## CI parity: bidirectional user flow tests
+
+The CI pipeline validates user synchronization in both directions:
+
+- Outbound: FOSSBilling -> RabbitMQ (`facturatie.user.*`)
+- Inbound: RabbitMQ -> FOSSBilling (`crm.user.*`)
+
 ## Port notes for infra
 
 - Keep container port `80` as-is (Nginx listens on 80 internally).
