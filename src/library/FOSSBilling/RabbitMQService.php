@@ -50,6 +50,7 @@ class RabbitMQService
         $defaultFacturatieCompanySchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_company_contract.xsd';
 
         $this->schemaPaths = $config['schema_paths'] ?? [
+            'invoice.finalized' => $defaultSchemaPath,
             'facturatie.invoice.finalized' => $defaultSchemaPath,
             'facturatie.heartbeat' => $defaultHeartbeatSchemaPath,
             'routing.heartbeat' => $defaultHeartbeatSchemaPath,
