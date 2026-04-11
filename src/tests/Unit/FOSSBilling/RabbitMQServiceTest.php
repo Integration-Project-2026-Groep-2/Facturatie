@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit\FOSSBilling;
 
+require_once __DIR__ . '/../../../library/FOSSBilling/RabbitMQService.php';
+
 use FOSSBilling\RabbitMQService;
 use PHPUnit\Framework\TestCase;
 
