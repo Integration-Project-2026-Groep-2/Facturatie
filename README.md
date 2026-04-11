@@ -116,12 +116,18 @@ Optional environment variables:
 - `HEARTBEAT_ROUTING_KEY=facturatie.heartbeat` to customize routing key
 - `HEARTBEAT_INTERVAL_MS=1000` to change interval in milliseconds
 
-## CI parity: bidirectional user flow tests
+## Testing and CI/CD
 
-The CI pipeline validates user synchronization in both directions:
+### CI workflow
+
+The `.github/workflows/ci.yml` workflow runs on pull requests and pushes to `main`, validates user synchronization in both directions:
 
 - Outbound: FOSSBilling -> RabbitMQ (`facturatie.user.*`)
 - Inbound: RabbitMQ -> FOSSBilling (`crm.user.*`)
+
+### Deployment gating
+
+A separate `.github/workflows/cd.yml` workflow deploys the app only after the CI workflow succeeds on `main`. This ensures all tests pass before any code reaches production.
 
 ## Port notes for infra
 

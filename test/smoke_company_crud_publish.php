@@ -46,7 +46,7 @@ $adminApi->setService($service);
 $companyId = $adminApi->create([
     'name' => 'Smoke Test BV ' . time(),
     'vat_number' => 'BE0123456789',
-    'email' => 'smoke-company-' . time() . '@example.com',
+    'email' => 'smoke-company-' . time() . '@gmail.com',
     'phone' => '+3221234567',
     'street' => 'Testlaan',
     'house_number' => '42',
@@ -62,7 +62,7 @@ echo 'Created company id=' . $companyId . PHP_EOL;
 $adminApi->update([
     'id' => $companyId,
     'name' => 'Smoke Test BV Updated',
-    'email' => 'smoke-company-updated-' . time() . '@example.com',
+    'email' => 'smoke-company-updated-' . time() . '@gmail.com',
     'phone' => '+3229876543',
     'street' => 'Nieuwstraat',
     'house_number' => '1',
