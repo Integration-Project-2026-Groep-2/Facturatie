@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../src/load.php';
 
+$di['translate']();
+
 $hookService = $di['mod_service']('hook');
 $hookService->batchConnect('Client');
 

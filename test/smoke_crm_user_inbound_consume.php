@@ -18,6 +18,8 @@ require_once $loadPath;
 use FOSSBilling\CrmUserReceiverService;
 use FOSSBilling\RabbitMQService;
 
+$di['translate']();
+
 $exchange = getenv('CRM_CONTACT_EXCHANGE') ?: 'contact.topic';
 $probeQueue = 'facturatie.crm.user.inbound.probe.' . bin2hex(random_bytes(4));
 

@@ -20,6 +20,8 @@ if (!file_exists($loadPath)) {
 }
 require_once $loadPath;
 
+$di['translate']();
+
 $exchange = getenv('FACTURATIE_COMPANY_EXCHANGE') ?: 'company.topic';
 $rabbit = new \FOSSBilling\RabbitMQService([
     'exchange' => $exchange,
