@@ -7,9 +7,10 @@
     </xs:restriction>
   </xs:simpleType>
 
-  <xs:simpleType name="FinalizedType">
+  <xs:simpleType name="InvoiceType">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="invoice_finalized"/>
+      <xs:enumeration value="REGULAR"/>
+      <xs:enumeration value="CREDIT"/>
     </xs:restriction>
   </xs:simpleType>
 
@@ -20,7 +21,7 @@
         <xs:element name="recipientEmail" type="EmailType"/>
         <xs:element name="pdfUrl" type="xs:anyURI"/>
         <xs:element name="totalAmount" type="xs:decimal"/>
-        <xs:element name="type" type="FinalizedType"/>
+        <xs:element name="type" type="InvoiceType"/>
       </xs:sequence>
     </xs:complexType>
   </xs:element>
