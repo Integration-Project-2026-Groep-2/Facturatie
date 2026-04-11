@@ -176,15 +176,31 @@ function ensureCompanyExists($db, string $companyId): void
         return;
     }
 
-    $company = $db->dispense('Company');
-    $company->id = $companyId;
-    $company->name = 'Inbound Smoke Company';
-    $company->vat_number = null;
-    $company->email = 'inbound-smoke-company@example.com';
-    $company->country = 'BE';
-    $company->created_at = date('Y-m-d H:i:s');
-    $company->updated_at = date('Y-m-d H:i:s');
-    $db->store($company);
+    $now = date('Y-m-d H:i:s');
+    $db->exec(
+        'INSERT INTO company (id, name, vat_number, company_number, email, phone, street, house_number, city, postal_code, country, is_active, created_at, updated_at) VALUES (:id, :name, :vat_number, :company_number, :email, :phone, :street, :house_number, :city, :postal_code, :country, :is_active, :created_at, :updated_at) ON DUPLICATE KEY UPDATE name = VALUES(name), vat_number = VALUES(vat_number), company_number = VALUES(company_number), email = VALUES(email), phone = VALUES(phone), street = VALUES(street), house_number = VALUES(house_number), city = VALUES(city), postal_code = VALUES(postal_code), country = VALUES(country), is_active = VALUES(is_active), updated_at = VALUES(updated_at)',
+        [
+            ':id' => $companyId,
+            ':name' => 'Inbound Smoke Company',
+            ':vat_number' => null,
+            ':company_number' => null,
+            ':email' => 'inbound-smoke-company@example.com',
+            ':phone' => null,
+            ':street' => null,
+            ':house_number' => null,
+            ':city' => null,
+            ':postal_code' => null,
+            ':country' => 'BE',
+            ':is_active' => 1,
+            ':created_at' => $now,
+            ':updated_at' => $now,
+        ]
+    );
+
+    $company = $db->findOne('Company', 'id = ?', [$companyId]);
+    if (!$company instanceof \Model_Company) {
+        fail('Unable to seed inbound smoke company dependency.');
+    }
 }
 
 function deleteExistingClient($db, string $crmUserId, string $email): void
