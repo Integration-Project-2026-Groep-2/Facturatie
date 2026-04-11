@@ -22,6 +22,7 @@ $rabbit->declareAndBindQueue($probeQueue, 'facturatie.user.*', true, $exchange);
 
 $adminApi = new \Box\Mod\Client\Api\Admin();
 $adminApi->setDi($di);
+$adminApi->setService($di['mod_service']('client'));
 
 $uuid = '8a9b2a3e-6d1f-4b58-8c20-2f5f3f5c4d11';
 $email = 'copilot.smoke.' . time() . '@gmail.com';
