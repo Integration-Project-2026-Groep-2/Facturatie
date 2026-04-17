@@ -162,7 +162,7 @@
 
             <a class="btn btn-outline-primary api-link mt-2"
                href="{{ 'api/admin/invoice/generate_company_summary_by_company'|link({ 'company_id': company_entity.id, 'CSRFToken': CSRFToken }) }}"
-               data-api-reload="1"
+               data-api-jsonp="onAfterInvoicePrepared"
                data-api-confirm="{{ 'Generate company summary invoice for'|trans }} {{ company_summary_preview.transactions_count }} {{ 'transactions'|trans }} ({{ mf.currency_format(company_summary_preview.total, company_summary_preview.currency) }})?">
                 <svg class="icon">
                     <use xlink:href="#plus" />
@@ -207,5 +207,9 @@ document.addEventListener('DOMContentLoaded', function () {
     window.addEventListener('pageshow', applyDbValues);
     setTimeout(applyDbValues, 50);
 });
+
+function onAfterInvoicePrepared(id) {
+    bb.redirect("{{ 'invoice/manage/'|alink }}/" + id);
+}
 </script>
 {% endblock %}

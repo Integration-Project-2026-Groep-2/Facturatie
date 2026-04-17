@@ -29,7 +29,7 @@ class Admin implements \FOSSBilling\InjectionAwareInterface
     {
         return [
             'group' => [
-                'index' => 400,
+                'index' => 300,
                 'location' => 'invoice',
                 'label' => __trans('Invoices'),
                 'uri' => 'invoice',
