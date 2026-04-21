@@ -144,6 +144,7 @@ class FacturatieUserPublisherService
             'phone' => $this->nullableString($client->phone),
             'role' => $this->normalizeRole($client->custom_2 ?? null),
             'companyId' => $this->normalizeUuid($client->company_id ?? null),
+            'isActive' => (string) $client->status === \Model_Client::ACTIVE,
             'createdAt' => $this->toIso8601($client->created_at ?? null),
         ];
     }
@@ -181,6 +182,7 @@ class FacturatieUserPublisherService
         $this->appendOptionalElement($dom, $root, 'phone', $payload['phone']);
         $this->appendRequiredElement($dom, $root, 'role', $payload['role']);
         $this->appendOptionalElement($dom, $root, 'companyId', $payload['companyId']);
+        $this->appendRequiredElement($dom, $root, 'isActive', $this->boolToXml($payload['isActive']));
         $this->appendRequiredElement($dom, $root, 'createdAt', $payload['createdAt']);
 
         $dom->appendChild($root);
