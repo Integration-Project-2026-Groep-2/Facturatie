@@ -147,6 +147,7 @@ class Admin extends \Api_Abstract
         $required = [
             'email' => 'Email required',
             'first_name' => 'First name is required',
+            'last_name' => 'Last name is required',
         ];
         $this->di['validator']->checkRequiredParamsForArray($required, $data);
 

@@ -62,6 +62,7 @@ class Guest extends \Api_Abstract
         $required = [
             'email' => 'Email required',
             'first_name' => 'First name required',
+            'last_name' => 'Last name required',
             'password' => 'Password required',
             'password_confirm' => 'Password confirmation required',
         ];
