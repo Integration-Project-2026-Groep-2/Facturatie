@@ -11,12 +11,16 @@
 
 namespace Box\Mod\Client;
 
+use FOSSBilling\FacturatieUserPublisherService;
 use FOSSBilling\InjectionAwareInterface;
 use Ramsey\Uuid\Uuid;
 
 class Service implements InjectionAwareInterface
 {
     protected ?\Pimple\Container $di = null;
+
+    /** @var array<int, string> */
+    private static array $clientStatusBeforeUpdate = [];
 
     public function setDi(\Pimple\Container $di): void
     {
@@ -80,6 +84,127 @@ class Service implements InjectionAwareInterface
             $emailService->sendTemplate($email);
         } catch (\Exception $exc) {
             error_log($exc->getMessage());
+        }
+
+        return true;
+    }
+
+    public static function onAfterAdminCreateClient(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        if (self::shouldSkipOutboundUserPublish($params)) {
+            self::logUserSyncSkip($di, 'created', $clientId, $params, 'onAfterAdminCreateClient');
+
+            return true;
+        }
+
+        try {
+            $client = $di['db']->getExistingModelById('Client', $clientId, 'Client not found for outbound user.created sync');
+            $publisher = new FacturatieUserPublisherService($di);
+            $publisher->publishCreated($client);
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'created', $clientId, $exception, [
+                'hook' => 'onAfterAdminCreateClient',
+            ]);
+        }
+
+        return true;
+    }
+
+    public static function onBeforeAdminClientUpdate(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        try {
+            $client = $di['db']->findOne('Client', 'id = ?', [$clientId]);
+            if ($client instanceof \Model_Client) {
+                self::$clientStatusBeforeUpdate[$clientId] = (string) $client->status;
+            }
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'before-update-status-capture', $clientId, $exception, [
+                'hook' => 'onBeforeAdminClientUpdate',
+            ]);
+        }
+
+        return true;
+    }
+
+    public static function onAfterAdminClientUpdate(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        if (self::shouldSkipOutboundUserPublish($params)) {
+            unset(self::$clientStatusBeforeUpdate[$clientId]);
+            self::logUserSyncSkip($di, 'updated', $clientId, $params, 'onAfterAdminClientUpdate');
+
+            return true;
+        }
+
+        $previousStatus = self::$clientStatusBeforeUpdate[$clientId] ?? null;
+        unset(self::$clientStatusBeforeUpdate[$clientId]);
+
+        try {
+            $client = $di['db']->getExistingModelById('Client', $clientId, 'Client not found for outbound user.updated sync');
+            $publisher = new FacturatieUserPublisherService($di);
+
+            $isNowDeactivated = in_array((string) $client->status, [\Model_Client::SUSPENDED, \Model_Client::CANCELED], true);
+            $wasDeactivated = $previousStatus !== null && in_array($previousStatus, [\Model_Client::SUSPENDED, \Model_Client::CANCELED], true);
+
+            if ($isNowDeactivated && !$wasDeactivated) {
+                $publisher->publishDeactivated($client);
+
+                return true;
+            }
+
+            $publisher->publishUpdated($client);
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'updated', $clientId, $exception, [
+                'hook' => 'onAfterAdminClientUpdate',
+                'previous_status' => $previousStatus,
+                'current_status' => isset($client) && $client instanceof \Model_Client ? (string) $client->status : null,
+            ]);
+        }
+
+        return true;
+    }
+
+    public static function onBeforeAdminClientDelete(\Box_Event $event)
+    {
+        $di = $event->getDi();
+        $params = $event->getParameters();
+        $clientId = isset($params['id']) ? (int) $params['id'] : 0;
+
+        if ($clientId < 1) {
+            return true;
+        }
+
+        try {
+            $client = $di['db']->getExistingModelById('Client', $clientId, 'Client not found for outbound user.deactivated sync');
+            $publisher = new FacturatieUserPublisherService($di);
+            $publisher->publishDeactivated($client);
+        } catch (\Throwable $exception) {
+            self::logUserSyncFailure($di, 'deactivated', $clientId, $exception, [
+                'hook' => 'onBeforeAdminClientDelete',
+            ]);
         }
 
         return true;
@@ -680,7 +805,20 @@ class Service implements InjectionAwareInterface
     {
         $this->di['events_manager']->fire(['event' => 'onBeforeAdminCreateClient', 'params' => $data]);
         $client = $this->createClient($data);
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminCreateClient', 'params' => ['id' => $client->id, 'password' => $data['password']]]);
+        $eventParams = [
+            'id' => $client->id,
+            'password' => $data['password'] ?? null,
+        ];
+
+        if (array_key_exists('sync_origin', $data)) {
+            $eventParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $eventParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminCreateClient', 'params' => $eventParams]);
         $this->di['logger']->info('Created new client #%s', $client->id);
 
         return $client->id;
@@ -1021,5 +1159,86 @@ class Service implements InjectionAwareInterface
         } catch (\Exception $e) {
             error_log($e->getMessage());
         }
+    }
+
+    private static function logUserSyncFailure(\Pimple\Container $di, string $flow, int $clientId, \Throwable $exception, array $context = []): void
+    {
+        $contextParts = [];
+        foreach ($context as $key => $value) {
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            $contextParts[] = sprintf('%s=%s', $key, (string) $value);
+        }
+
+        $contextSuffix = empty($contextParts) ? '' : ', ' . implode(', ', $contextParts);
+        $message = sprintf(
+            '[facturatie-user-sync] Failed to publish %s for client #%d (exception=%s, message=%s%s)',
+            $flow,
+            $clientId,
+            get_class($exception),
+            $exception->getMessage(),
+            $contextSuffix
+        );
+
+        if (isset($di['logger'])) {
+            $di['logger']->setChannel('application')->err($message);
+
+            return;
+        }
+
+        error_log($message);
+    }
+
+    private static function shouldSkipOutboundUserPublish(array $params): bool
+    {
+        if (self::isTruthy($params['suppress_user_topic_publish'] ?? null)) {
+            return true;
+        }
+
+        $origin = strtolower((string) ($params['sync_origin'] ?? ''));
+
+        return $origin === 'crm';
+    }
+
+    private static function isTruthy($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+
+        if (is_int($value)) {
+            return $value === 1;
+        }
+
+        if (is_string($value)) {
+            return in_array(strtolower(trim($value)), ['1', 'true', 'yes', 'on'], true);
+        }
+
+        return false;
+    }
+
+    private static function logUserSyncSkip(\Pimple\Container $di, string $flow, int $clientId, array $params, string $hook): void
+    {
+        $origin = (string) ($params['sync_origin'] ?? '');
+        $suppressed = self::isTruthy($params['suppress_user_topic_publish'] ?? null) ? 'true' : 'false';
+
+        $message = sprintf(
+            '[facturatie-user-sync] Skipped %s publish for client #%d (hook=%s, origin=%s, suppress_user_topic_publish=%s)',
+            $flow,
+            $clientId,
+            $hook,
+            $origin === '' ? 'unknown' : $origin,
+            $suppressed
+        );
+
+        if (isset($di['logger'])) {
+            $di['logger']->setChannel('application')->info($message);
+
+            return;
+        }
+
+        error_log($message);
     }
 }

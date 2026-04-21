@@ -370,19 +370,32 @@ class Service implements InjectionAwareInterface
         $recipientEmail = $invoice['buyer']['email'] ?? ($invoice['client']['email'] ?? '');
         $invoiceNumber = $invoice['serie_nr'] ?: (string) $invoice['id'];
         $pdfUrl = $di['tools']->url('invoice/pdf/' . $invoice['hash']);
+        $invoiceType = ((float) ($invoice['total'] ?? 0)) < 0 ? 'CREDIT' : 'REGULAR';
 
         $dom = new \DOMDocument('1.0', 'UTF-8');
-        $root = $dom->createElement('invoice_finalized');
+        $root = $dom->createElement('InvoiceFinalized');
 
         $root->appendChild($dom->createElement('invoiceNumber', $invoiceNumber));
         $root->appendChild($dom->createElement('recipientEmail', $recipientEmail));
         $root->appendChild($dom->createElement('pdfUrl', $pdfUrl));
         $root->appendChild($dom->createElement('totalAmount', number_format((float) $invoice['total'], 2, '.', '')));
-        $root->appendChild($dom->createElement('type', 'invoice_finalized'));
+        $root->appendChild($dom->createElement('type', $invoiceType));
 
         $dom->appendChild($root);
 
         return $dom->saveXML();
+    }
+
+    private static function isCompanySummaryInvoice(array $invoice): bool
+    {
+        $groupedLines = $invoice['grouped_client_lines'] ?? [];
+        if (!empty($groupedLines)) {
+            return true;
+        }
+
+        $notes = (string) ($invoice['notes'] ?? '');
+
+        return str_contains($notes, 'Company summary invoice grouped by linked users:');
     }
 
     public static function onAfterAdminInvoiceApprove(\Box_Event $event)
@@ -408,10 +421,25 @@ class Service implements InjectionAwareInterface
             $invoiceModel = $di['db']->load('Invoice', $params['id']);
             $invoice = $service->toApiArray($invoiceModel, ['id' => $params['id']]);
 
-            $rabbitMQService = new RabbitMQService();
-            $rabbitMQService->publishXML('facturatie.invoice.finalized', self::buildInvoiceFinalizedXml($invoice, $di));
+            if (!self::isCompanySummaryInvoice($invoice)) {
+                return true;
+            }
+
+            $routingKey = 'invoice.finalized';
+            $exchange = getenv('INVOICE_EXCHANGE') ?: 'invoice.topic';
+
+            $rabbitMQService = new RabbitMQService([
+                'exchange' => $exchange,
+            ]);
+            $rabbitMQService->publishXML($routingKey, self::buildInvoiceFinalizedXml($invoice, $di));
         } catch (\Exception $exc) {
-            error_log($exc->getMessage());
+            $di['logger']->setChannel('application')->error(
+                'Failed to publish company summary invoice finalized message for invoice #%s to %s/%s: %s',
+                $params['id'] ?? 'unknown',
+                $exchange ?? 'invoice.topic',
+                $routingKey ?? 'invoice.finalized',
+                $exc->getMessage()
+            );
         }
 
         return true;

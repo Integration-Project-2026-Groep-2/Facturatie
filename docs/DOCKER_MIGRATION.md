@@ -215,6 +215,51 @@ docker run -p 80:80 -d my-registry.com/facturatie:v0.9
 
 ---
 
+## Database Bootstrap Strategy (No Full Dump in Git)
+
+The DB bootstrap now uses schema-first initialization instead of importing a full local database dump.
+
+- Required file: `docker/db/init/baseline-schema.sql`
+- Optional file: `docker/db/init/seed-data.sql`
+
+### Why this is better
+
+- Avoids committing personal/operational data to source control.
+- Keeps first boot deterministic and reproducible.
+- Works with persistent Docker volumes across image rebuilds.
+
+### Generate baseline schema from current `db-full.sql`
+
+From project root in PowerShell:
+
+```powershell
+./scripts/generate-baseline-schema.ps1
+```
+
+The script converts UTF-16LE dumps to UTF-8, imports into a temporary MariaDB 10.11 container, and exports schema-only SQL.
+
+### First-boot behavior
+
+On a clean database volume, the DB init script imports:
+
+1. `docker/db/init/baseline-schema.sql` (required)
+2. `docker/db/init/seed-data.sql` only if present and non-empty
+
+The init script then validates that critical tables exist before marking initialization as complete.
+
+### Reset and rebuild
+
+Use this only when you intentionally want a fresh database:
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+If you do not remove the DB volume, table/data state persists across image rebuilds.
+
+---
+
 ## Testing the Migration
 
 ```bash

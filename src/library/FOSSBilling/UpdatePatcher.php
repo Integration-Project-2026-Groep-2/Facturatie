@@ -488,6 +488,13 @@ class UpdatePatcher implements InjectionAwareInterface
                 $q = 'ALTER TABLE company DROP COLUMN IF EXISTS state;';
                 $this->executeSql($q);
             },
+            46 => function (): void {
+                $q = 'ALTER TABLE company ADD COLUMN IF NOT EXISTS is_active TINYINT(1) NOT NULL DEFAULT 1 AFTER country;';
+                $this->executeSql($q);
+
+                $q = 'UPDATE company SET is_active = 1 WHERE is_active IS NULL;';
+                $this->executeSql($q);
+            },
         ];
         ksort($patches, SORT_NATURAL);
 

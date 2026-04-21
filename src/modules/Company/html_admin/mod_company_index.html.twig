@@ -33,6 +33,7 @@
                             <th>{{ 'VAT Number'|trans }}</th>
                             <th>{{ 'Company Number'|trans }}</th>
                             <th>{{ 'Email'|trans }}</th>
+                            <th>{{ 'Status'|trans }}</th>
                             <th>{{ 'Linked clients'|trans }}</th>
                             <th class="w-1"></th>
                         </tr>
@@ -45,18 +46,38 @@
                             <td>{{ company.vat_number|default('-') }}</td>
                             <td>{{ company.company_number|default('-') }}</td>
                             <td>{{ company.email|default('-') }}</td>
+                            <td>
+                                {% if company.is_active %}
+                                    <span class="badge bg-green-lt">{{ 'Active'|trans }}</span>
+                                {% else %}
+                                    <span class="badge bg-red-lt">{{ 'Inactive'|trans }}</span>
+                                {% endif %}
+                            </td>
                             <td>{{ company.linked_clients }}</td>
                             <td>
-                                <a class="btn btn-icon" href="{{ 'company/manage'|alink }}/{{ company.id }}">
-                                    <svg class="icon">
-                                        <use xlink:href="#edit" />
-                                    </svg>
-                                </a>
+                                <div class="d-flex gap-2">
+                                    <a class="btn btn-icon" href="{{ 'company/manage'|alink }}/{{ company.id }}" title="{{ 'Edit'|trans }}">
+                                        <svg class="icon">
+                                            <use xlink:href="#edit" />
+                                        </svg>
+                                    </a>
+                                    {% if company.is_active %}
+                                        <a class="btn btn-icon api-link"
+                                           href="{{ 'api/admin/company/deactivate'|link({ 'id': company.id, 'CSRFToken': CSRFToken }) }}"
+                                           data-api-confirm="{{ 'Are you sure you want to deactivate this company?'|trans }}"
+                                           data-api-reload="1"
+                                           title="{{ 'Deactivate'|trans }}">
+                                            <svg class="icon">
+                                                <use xlink:href="#delete" />
+                                            </svg>
+                                        </a>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% else %}
                         <tr>
-                            <td class="text-muted" colspan="6">{{ 'The list is empty'|trans }}</td>
+                            <td class="text-muted" colspan="7">{{ 'The list is empty'|trans }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

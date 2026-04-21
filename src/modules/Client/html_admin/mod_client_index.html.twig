@@ -259,8 +259,13 @@
                                             <use xlink:href="#edit" />
                                         </svg>
                                     </a>
-                                    <a class="btn btn-icon api-link" href="{{ 'api/admin/client/delete'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}" data-api-confirm="{{ 'Are you sure?'|trans }}" data-api-reload="1">
+                                    <a class="btn btn-icon api-link" href="{{ 'api/admin/client/deactivate'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}" data-api-confirm="{{ 'Are you sure you want to deactivate this client?'|trans }}" data-api-reload="1" title="{{ 'Deactivate'|trans }}">
                                         <svg class="icon">
+                                            <use xlink:href="#delete" />
+                                        </svg>
+                                    </a>
+                                    <a class="btn btn-icon api-link" href="{{ 'api/admin/client/delete'|link({ 'id': client.id, 'CSRFToken': CSRFToken }) }}" data-api-confirm="{{ 'Are you sure you want to permanently delete this client from the database? This cannot be undone.'|trans }}" data-api-reload="1" title="{{ 'Delete Permanently'|trans }}" style="opacity: 0.6;">
+                                        <svg class="icon" style="color: #dc3545;">
                                             <use xlink:href="#delete" />
                                         </svg>
                                     </a>
@@ -277,7 +282,13 @@
 
                 <div class="card-footer d-flex align-items-center justify-content-between">
                     <div>
-                        {{ include('partial_batch_delete.html.twig', { 'action': 'admin/client/batch_delete' }) }}
+                        {{ include('partial_batch_delete.html.twig', {
+                            'action': 'admin/client/batch_deactivate',
+                            'button_text': 'Deactivate selected'|trans,
+                            'confirm_content': 'Are you sure you want to deactivate the selected items?'|trans,
+                            'empty_content': 'You need to select at least one item to deactivate'|trans,
+                            'button_id': 'batch-deactivate-selected-btn'
+                        }) }}
                         {{ include('partial_pagination.html.twig', { 'list': clients, 'url': 'client' }) }}
                     </div>
                     <div>
@@ -295,50 +306,78 @@
                 <div class="card-body">
                     <form method="post" action="{{ 'api/admin/client/create'|link }}" class="api-form save" data-api-redirect="{{ 'client'|alink }}">
                         <input type="hidden" name="CSRFToken" value="{{ CSRFToken }}"/>
-                        <div class="form-group mb-3 row">
-                            <label class="form-label col-3 col-form-label">{{ 'Status'|trans }}:</label>
-                            <div class="col">
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" id="radioStatusActive" name="status" value="active" checked>
-                                    <label class="form-check-label" for="radioStatusActive">{{ 'Active'|trans }}</label>
+                        
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                <div class="form-group mb-3 row">
+                                    <label class="form-label col-3 col-form-label">{{ 'Status'|trans }}:</label>
+                                    <div class="col">
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" id="radioStatusActive" name="status" value="active" checked>
+                                            <label class="form-check-label" for="radioStatusActive">{{ 'Active'|trans }}</label>
+                                        </div>
+                                        <div class="form-check form-check-inline">
+                                            <input class="form-check-input" type="radio" id="radioStatusCanceled" name="status" value="canceled">
+                                            <label class="form-check-label" for="radioStatusCanceled">{{ 'Canceled'|trans }}</label>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-check form-check-inline">
-                                    <input class="form-check-input" type="radio" id="radioStatusCanceled" name="status" value="canceled">
-                                    <label class="form-check-label" for="radioStatusCanceled">{{ 'Canceled'|trans }}</label>
+                                <div class="form-group mb-3 row">
+                                    <label class="form-label col-3 col-form-label">{{ 'Email'|trans }}:</label>
+                                    <div class="col">
+                                        <input class="form-control" type="text" name="email" value="{{ request.email }}" required>
+                                    </div>
+                                </div>
+                                <div class="form-group mb-3 row">
+                                    <label class="form-label col-3 col-form-label">{{ 'Name'|trans }}:</label>
+                                    <div class="col">
+                                        <div class="row g-2">
+                                            <div class="col">
+                                                <input class="form-control" type="text" name="first_name" value="{{ request.first_name }}" required>
+                                            </div>
+                                            <div class="col">
+                                                <input class="form-control" type="text" name="last_name" value="{{ request.last_name }}">
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group mb-3 row">
+                                    <label class="form-label col-3 col-form-label">{{ 'Phone'|trans }}:</label>
+                                    <div class="col">
+                                        <div class="input-group">
+                                            <span class="input-group-text">+</span>
+                                            <input class="form-control" type="text" name="phone_cc" value="{{ request.phone_cc }}">
+                                            {# <span class="input-group-text">-</span> #}
+                                            <input class="form-control w-50" type="text" name="phone" value="{{ request.phone }}">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-group mb-3 row">
+                                    <label class="form-label col-3 col-form-label">{{ 'Password'|trans }}:</label>
+                                    <div class="col">
+                                        <input class="form-control" type="password" name="password" value="" required>
+                                    </div>
+                                </div>
+                                <div class="form-group mb-3 row">
+                                    <label class="form-label col-3 col-form-label">{{ 'Company'|trans }}:</label>
+                                    <div class="col">
+                                        {{ mf.selectbox('company_id', admin.company_get_pairs, request.company_id, 0, 'Select existing company (optional)'|trans) }}
+                                        <small class="form-hint">{{ 'Manage company details from the Companies section.'|trans }}</small>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        <h2 class="mb-3 text-primary" style="font-weight: 600; margin-top: 2rem;">{{ 'Optional'|trans }}</h2>
+                        <p class="text-muted mb-3">{{ 'For private clients who are not linked to a company.'|trans }}</p>
+
                         <div class="form-group mb-3 row">
                             <label class="form-label col-3 col-form-label">{{ 'Group'|trans }}:</label>
                             <div class="col">
                                 {{ mf.selectbox('group_id', admin.client_group_get_pairs, request.group_id, 0, 'Select group'|trans) }}
                             </div>
                         </div>
-                        <div class="form-group mb-3 row">
-                            <label class="form-label col-3 col-form-label">{{ 'Email'|trans }}:</label>
-                            <div class="col">
-                                <input class="form-control" type="text" name="email" value="{{ request.email }}" required>
-                            </div>
-                        </div>
-                        <div class="form-group mb-3 row">
-                            <label class="form-label col-3 col-form-label">{{ 'Name'|trans }}:</label>
-                            <div class="col">
-                                <div class="row g-2">
-                                    <div class="col">
-                                        <input class="form-control" type="text" name="first_name" value="{{ request.first_name }}" required>
-                                    </div>
-                                    <div class="col">
-                                        <input class="form-control" type="text" name="last_name" value="{{ request.last_name }}">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group mb-3 row">
-                            <label class="form-label col-3 col-form-label">{{ 'Company'|trans }}:</label>
-                            <div class="col">
-                                <input class="form-control" type="text" name="company" value="{{ request.company }}">
-                            </div>
-                        </div>
+
                         <div class="form-group mb-3 row">
                             <label class="form-label col-3 col-form-label">{{ 'Address Line 1'|trans }}:</label>
                             <div class="col">
@@ -377,26 +416,9 @@
                             </div>
                         </div>
                         <div class="form-group mb-3 row">
-                            <label class="form-label col-3 col-form-label">{{ 'Phone'|trans }}:</label>
-                            <div class="col">
-                                <div class="input-group">
-                                    <span class="input-group-text">+</span>
-                                    <input class="form-control" type="text" name="phone_cc" value="{{ request.phone_cc }}">
-                                    {# <span class="input-group-text">-</span> #}
-                                    <input class="form-control w-50" type="text" name="phone" value="{{ request.phone }}">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="form-group mb-3 row">
                             <label class="form-label col-3 col-form-label">{{ 'Currency'|trans }}:</label>
                             <div class="col">
                                 {{ mf.selectbox('currency', guest.currency_get_pairs, request.currency, 0, 'Select currency'|trans) }}
-                            </div>
-                        </div>
-                        <div class="form-group mb-3 row">
-                            <label class="form-label col-3 col-form-label">{{ 'Password'|trans }}:</label>
-                            <div class="col">
-                                <input class="form-control" type="password" name="password" value="" required>
                             </div>
                         </div>
 

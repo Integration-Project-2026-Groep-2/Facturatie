@@ -142,9 +142,12 @@ class Admin extends \Api_Abstract
      */
     public function create($data)
     {
+        $data = $this->normalizeClientPayload($data);
+
         $required = [
             'email' => 'Email required',
             'first_name' => 'First name is required',
+            'last_name' => 'Last name is required',
         ];
         $this->di['validator']->checkRequiredParamsForArray($required, $data);
 
@@ -166,7 +169,43 @@ class Admin extends \Api_Abstract
     }
 
     /**
-     * Deletes client from system.
+     * Deactivates client in system (soft delete).
+     *
+     * @return bool
+     */
+    public function deactivate($data)
+    {
+        $required = [
+            'id' => 'Client id is missing',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        $client = $this->di['db']->getExistingModelById('Client', $data['id'], 'Client not found');
+
+        $this->di['events_manager']->fire(['event' => 'onBeforeAdminClientUpdate', 'params' => ['id' => $client->id, 'status' => \Model_Client::SUSPENDED]]);
+
+        $client->status = \Model_Client::SUSPENDED;
+        $client->updated_at = date('Y-m-d H:i:s');
+        $this->di['db']->store($client);
+
+        $afterUpdateParams = ['id' => $client->id];
+        if (array_key_exists('sync_origin', $data)) {
+            $afterUpdateParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $afterUpdateParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => $afterUpdateParams]);
+
+        $this->di['logger']->info('Deactivated client #%s', $client->id);
+
+        return true;
+    }
+
+    /**
+     * Permanently delete a client from database while sending deactivation message to RabbitMQ.
      *
      * @return bool
      */
@@ -177,15 +216,26 @@ class Admin extends \Api_Abstract
         ];
         $this->di['validator']->checkRequiredParamsForArray($required, $data);
 
-        $model = $this->di['db']->getExistingModelById('Client', $data['id'], 'Client not found');
+        $client = $this->di['db']->getExistingModelById('Client', $data['id'], 'Client not found');
 
-        $this->di['events_manager']->fire(['event' => 'onBeforeAdminClientDelete', 'params' => ['id' => $model->id]]);
+        // Fire event to trigger deactivation message to RabbitMQ
+        $this->di['events_manager']->fire(['event' => 'onBeforeAdminClientUpdate', 'params' => ['id' => $client->id, 'status' => \Model_Client::SUSPENDED]]);
 
-        $id = $model->id;
-        $this->getService()->remove($model);
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientDelete', 'params' => ['id' => $id]]);
+        // Actually delete from database
+        $this->di['db']->trash($client);
 
-        $this->di['logger']->info('Removed client #%s', $id);
+        $afterUpdateParams = ['id' => $client->id];
+        if (array_key_exists('sync_origin', $data)) {
+            $afterUpdateParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $afterUpdateParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => $afterUpdateParams]);
+
+        $this->di['logger']->info('Permanently deleted client #%s', $client->id);
 
         return true;
     }
@@ -238,6 +288,8 @@ class Admin extends \Api_Abstract
      */
     public function update($data = [])
     {
+        $data = $this->normalizeClientPayload($data);
+
         $required = ['id' => 'Id required'];
         $this->di['validator']->checkRequiredParamsForArray($required, $data);
 
@@ -313,7 +365,16 @@ class Admin extends \Api_Abstract
         $client->updated_at = date('Y-m-d H:i:s');
 
         $this->di['db']->store($client);
-        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => ['id' => $client->id]]);
+        $afterUpdateParams = ['id' => $client->id];
+        if (array_key_exists('sync_origin', $data)) {
+            $afterUpdateParams['sync_origin'] = $data['sync_origin'];
+        }
+
+        if (array_key_exists('suppress_user_topic_publish', $data)) {
+            $afterUpdateParams['suppress_user_topic_publish'] = $data['suppress_user_topic_publish'];
+        }
+
+        $this->di['events_manager']->fire(['event' => 'onAfterAdminClientUpdate', 'params' => $afterUpdateParams]);
 
         $this->di['logger']->info('Updated client #%s profile', $client->id);
 
@@ -406,6 +467,43 @@ class Admin extends \Api_Abstract
         $this->di['logger']->info('Removed line %s from client #%s balance for %s', $id, $client_id, $amount);
 
         return true;
+    }
+
+    private function normalizeClientPayload(array $data): array
+    {
+        foreach ($data as $key => $value) {
+            $data[$key] = $this->normalizePayloadValue($value);
+        }
+
+        return $data;
+    }
+
+    private function normalizePayloadValue(mixed $value): mixed
+    {
+        if (!is_array($value) && !is_object($value)) {
+            return $value;
+        }
+
+        if (is_object($value)) {
+            return method_exists($value, '__toString') ? (string) $value : null;
+        }
+
+        $flattened = [];
+        array_walk_recursive($value, static function ($item) use (&$flattened): void {
+            if (is_scalar($item) || $item === null) {
+                $flattened[] = $item;
+            }
+        });
+
+        if ($flattened === []) {
+            return null;
+        }
+
+        if (count($flattened) === 1) {
+            return $flattened[0];
+        }
+
+        return implode(',', array_map(static fn($item): string => (string) $item, array_filter($flattened, static fn($item): bool => $item !== null)));
     }
 
     /**
@@ -615,7 +713,26 @@ class Admin extends \Api_Abstract
     }
 
     /**
-     * Deletes clients with given IDs.
+     * Deactivates clients with given IDs.
+     *
+     * @return bool
+     */
+    public function batch_deactivate($data)
+    {
+        $required = [
+            'ids' => 'IDs not passed',
+        ];
+        $this->di['validator']->checkRequiredParamsForArray($required, $data);
+
+        foreach ($data['ids'] as $id) {
+            $this->deactivate(['id' => $id]);
+        }
+
+        return true;
+    }
+
+    /**
+     * Permanently delete multiple clients from database while sending deactivation messages.
      *
      * @return bool
      */

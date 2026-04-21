@@ -15,6 +15,7 @@ namespace FOSSBilling;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AMQPStreamConnection;
 use PhpAmqpLib\Message\AMQPMessage;
+use PhpAmqpLib\Wire\AMQPTable;
 
 class RabbitMQService
 {
@@ -29,9 +30,6 @@ class RabbitMQService
     private string $exchange;
 
     /** @var array<string, string> */
-    private array $queues;
-
-    /** @var array<string, string> */
     private array $schemaPaths;
 
     public function __construct(?array $config = null)
@@ -43,23 +41,32 @@ class RabbitMQService
         $this->user = (string) ($config['user'] ?? getenv('RABBITMQ_USER') ?: getenv('RABBITMQ_DEFAULT_USER') ?: 'devuser');
         $this->password = (string) ($config['password'] ?? getenv('RABBITMQ_PASSWORD') ?: getenv('RABBITMQ_PASS') ?: getenv('RABBITMQ_DEFAULT_PASS') ?: 'devpass');
         $this->vhost = (string) ($config['vhost'] ?? getenv('RABBITMQ_VHOST') ?: '/');
-        $this->exchange = (string) ($config['exchange'] ?? getenv('RABBITMQ_EXCHANGE') ?: 'ehb.events');
+        $this->exchange = (string) ($config['exchange'] ?? getenv('HEARTBEAT_EXCHANGE') ?: 'heartbeat.direct');
 
         $defaultSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_contract.xsd';
         $defaultHeartbeatSchemaPath = dirname(__DIR__, 2) . '/data/contracts/hearbeat_contract.xsd';
-
-        $this->queues = $config['queues'] ?? [
-            'facturatie.invoice.finalized' => 'facturatie.invoice.finalized',
-            'facturatie.heartbeat' => 'facturatie.heartbeat',
-        ];
+        $defaultUserSchemaPath = dirname(__DIR__, 2) . '/data/contracts/user_data_contract.xsd';
+        $defaultFacturatieUserSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_user_contract.xsd';
+        $defaultFacturatieCompanySchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_company_contract.xsd';
 
         $this->schemaPaths = $config['schema_paths'] ?? [
+            'invoice.finalized' => $defaultSchemaPath,
             'facturatie.invoice.finalized' => $defaultSchemaPath,
             'facturatie.heartbeat' => $defaultHeartbeatSchemaPath,
+            'routing.heartbeat' => $defaultHeartbeatSchemaPath,
+            'facturatie.user.created' => $defaultFacturatieUserSchemaPath,
+            'facturatie.user.updated' => $defaultFacturatieUserSchemaPath,
+            'facturatie.user.deactivated' => $defaultFacturatieUserSchemaPath,
+            'facturatie.company.created' => $defaultFacturatieCompanySchemaPath,
+            'facturatie.company.updated' => $defaultFacturatieCompanySchemaPath,
+            'facturatie.company.deactivated' => $defaultFacturatieCompanySchemaPath,
+            'crm.user.confirmed' => $defaultUserSchemaPath,
+            'crm.user.updated' => $defaultUserSchemaPath,
+            'crm.user.deactivated' => $defaultUserSchemaPath,
         ];
     }
 
-    public function publishHeartbeat(string $serviceId, string $routingKey = 'facturatie.heartbeat', ?\DateTimeInterface $timestamp = null): void
+    public function publishHeartbeat(string $serviceId, string $routingKey = 'routing.heartbeat', ?\DateTimeInterface $timestamp = null): void
     {
         $timestamp ??= new \DateTimeImmutable('now', new \DateTimeZone('UTC'));
 
@@ -89,6 +96,70 @@ class RabbitMQService
         $this->getChannel()->basic_publish($message, $this->exchange, $routingKey);
     }
 
+    public function validateXMLForRoutingKey(string $routingKey, string $xml): void
+    {
+        $schemaPath = $this->schemaPaths[$routingKey] ?? null;
+        if ($schemaPath === null) {
+            throw new \InvalidArgumentException(sprintf('No XML schema configured for routing key "%s".', $routingKey));
+        }
+
+        $this->validateXml($xml, $schemaPath);
+    }
+
+    /**
+     * @param array<string, mixed> $arguments
+     */
+    public function declareAndBindQueue(string $queueName, string $routingKey, bool $durable = true, ?string $exchangeName = null, array $arguments = []): void
+    {
+        $channel = $this->getChannel();
+        $table = $arguments === [] ? null : new AMQPTable($arguments);
+        $channel->queue_declare($queueName, false, $durable, false, false, false, $table);
+        $channel->queue_bind($queueName, $exchangeName ?: $this->exchange, $routingKey);
+    }
+
+    public function declareExchange(string $exchangeName, string $type = 'topic', bool $durable = true): void
+    {
+        $this->getChannel()->exchange_declare($exchangeName, $type, false, $durable, false);
+    }
+
+    public function setPrefetchCount(int $prefetchCount): void
+    {
+        if ($prefetchCount < 1) {
+            return;
+        }
+
+        $this->getChannel()->basic_qos(null, $prefetchCount, null);
+    }
+
+    public function consumeQueue(string $queueName, callable $callback, bool $autoAck = false, string $consumerTag = ''): void
+    {
+        $this->getChannel()->basic_consume($queueName, $consumerTag, false, $autoAck, false, false, $callback);
+    }
+
+    /**
+     * @param array<string, mixed> $properties
+     */
+    public function publishRaw(string $exchangeName, string $routingKey, string $body, array $properties = []): void
+    {
+        $defaults = [
+            'content_type' => 'application/xml',
+            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
+        ];
+        $message = new AMQPMessage($body, $properties + $defaults);
+        $this->getChannel()->basic_publish($message, $exchangeName, $routingKey);
+    }
+
+    public function waitForMessages(float $timeoutSeconds = 1.0): void
+    {
+        $timeoutSeconds = max(0.0, $timeoutSeconds);
+        $this->getChannel()->wait(null, false, $timeoutSeconds);
+    }
+
+    public function hasCallbacks(): bool
+    {
+        return $this->getChannel()->is_consuming();
+    }
+
     public function getChannel(): AMQPChannel
     {
         if ($this->channel instanceof AMQPChannel) {
@@ -104,12 +175,8 @@ class RabbitMQService
         );
 
         $this->channel = $this->connection->channel();
-        $this->channel->exchange_declare($this->exchange, 'topic', false, true, false);
-
-        foreach ($this->queues as $routingKey => $queueName) {
-            $this->channel->queue_declare($queueName, false, true, false, false);
-            $this->channel->queue_bind($queueName, $this->exchange, $routingKey);
-        }
+        $exchangeType = $this->exchange === 'heartbeat.direct' ? 'direct' : 'topic';
+        $this->channel->exchange_declare($this->exchange, $exchangeType, false, true, false);
 
         return $this->channel;
     }

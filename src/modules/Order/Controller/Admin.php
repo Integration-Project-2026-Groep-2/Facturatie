@@ -29,7 +29,7 @@ class Admin implements \FOSSBilling\InjectionAwareInterface
     {
         return [
             'group' => [
-                'index' => 300,
+                'index' => 400,
                 'location' => 'order',
                 'label' => __trans('Orders'),
                 'uri' => $this->di['url']->adminLink('order'),

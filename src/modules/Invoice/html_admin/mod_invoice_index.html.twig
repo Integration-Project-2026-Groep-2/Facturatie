@@ -218,6 +218,13 @@
                     <tbody>
                         {% set invoices = admin.invoice_get_list({ 'per_page': 30, 'page': request.page }|merge(request)) %}
                         {% for invoice in invoices.list %}
+                        {% set buyerDisplayName = (invoice.buyer.first_name ~ ' ' ~ invoice.buyer.last_name)|trim %}
+                        {% if buyerDisplayName == '' %}
+                            {% set buyerDisplayName = invoice.buyer.company|default('')|trim %}
+                        {% endif %}
+                        {% if buyerDisplayName == '' %}
+                            {% set buyerDisplayName = invoice.client.email|default('-') %}
+                        {% endif %}
                         <tr>
                             <td>
                                 <input type="checkbox" class="form-check-input m-0 align-middle batch-delete-checkbox" data-item-id="{{ invoice.id }}">
@@ -231,7 +238,7 @@
                                 </a>
                             </td>
                             <td>
-                                <a href="{{ 'client'|alink }}/manage/{{ invoice.client.id }}">{{ invoice.buyer.first_name }} {{ invoice.buyer.last_name }}</a>
+                                <a href="{{ 'client'|alink }}/manage/{{ invoice.client.id }}">{{ buyerDisplayName }}</a>
                             </td>
                             <td class="text-center">{{ mf.currency_format(invoice.total, invoice.currency) }}</td>
                             <td class="text-center">{{ invoice.created_at|date('Y-m-d') }}</td>
