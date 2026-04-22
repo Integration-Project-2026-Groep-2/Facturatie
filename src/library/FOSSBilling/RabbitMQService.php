@@ -48,6 +48,9 @@ class RabbitMQService
         $defaultUserSchemaPath = dirname(__DIR__, 2) . '/data/contracts/user_data_contract.xsd';
         $defaultFacturatieUserSchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_user_contract.xsd';
         $defaultFacturatieCompanySchemaPath = dirname(__DIR__, 2) . '/data/contracts/facturatie_company_contract.xsd';
+        $defaultKassaSchemaPath = dirname(__DIR__, 2) . '/data/contracts/kassa_contract.xsd';
+        $defaultKassaBatchSchemaPath = dirname(__DIR__, 2) . '/data/contracts/kassa_batch_contract.xsd';
+        $defaultCrmCompanySchemaPath = dirname(__DIR__, 2) . '/data/contracts/crm_company_contract.xsd';
 
         $this->schemaPaths = $config['schema_paths'] ?? [
             'invoice.finalized' => $defaultSchemaPath,
@@ -63,10 +66,10 @@ class RabbitMQService
             'crm.user.confirmed' => $defaultUserSchemaPath,
             'crm.user.updated' => $defaultUserSchemaPath,
             'crm.user.deactivated' => $defaultUserSchemaPath,
-            // CRM → Facturatie: company synchronisatie (Contracten 14, 19, 23)
             'crm.company.confirmed' => $defaultUserSchemaPath,
             'crm.company.updated' => $defaultUserSchemaPath,
             'crm.company.deactivated' => $defaultUserSchemaPath,
+            'kassa.closed' => $defaultKassaBatchSchemaPath,
         ];
     }
 

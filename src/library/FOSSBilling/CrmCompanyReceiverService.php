@@ -267,7 +267,7 @@ class CrmCompanyReceiverService
     /**
      * Parset een CompanyUpdated XML bericht (Contract 19).
      *
-     * @return array{id: string, vatNumber: string, name: string, isActive: bool, updatedAt: string, ...}
+     * @return array{id: string, vatNumber: string, name: string, isActive: bool, updatedAt: string}
      */
     private function parseUpdated(string $xml): array
     {
