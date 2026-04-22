@@ -33,6 +33,8 @@ use Pimple\Container;
  */
 class CrmCompanyReceiverService
 {
+    private ?bool $aidColumnExists = null;
+
     public function __construct(private readonly Container $di)
     {
     }
@@ -158,7 +160,18 @@ class CrmCompanyReceiverService
      */
     private function findCompany(string $crmId, string $vatNumber): ?array
     {
-        // Primaire lookup: CRM UUID als bedrijfs-id
+        // Primaire lookup: CRM UUID in aid (nieuwe mapping)
+        if ($this->hasAidColumn()) {
+            $row = $this->di['db']->getRow(
+                'SELECT * FROM company WHERE aid = :aid LIMIT 1',
+                [':aid' => $crmId]
+            );
+            if (is_array($row) && $row !== []) {
+                return $row;
+            }
+        }
+
+        // Compatibiliteit: oudere records waar CRM UUID nog in id staat
         $row = $this->di['db']->getRow(
             'SELECT * FROM company WHERE id = :id LIMIT 1',
             [':id' => $crmId]
@@ -183,6 +196,34 @@ class CrmCompanyReceiverService
     {
         $now = date('Y-m-d H:i:s');
 
+        if ($this->hasAidColumn()) {
+            $localCompanyId = $this->generateLocalCompanyId();
+
+            $this->di['db']->exec(
+                'INSERT INTO company (id, aid, name, vat_number, email, phone, street, house_number, city, postal_code, country, is_active, created_at, updated_at)
+                 VALUES (:id, :aid, :name, :vat_number, :email, :phone, :street, :house_number, :city, :postal_code, :country, :is_active, :created_at, :updated_at)',
+                [
+                    ':id'           => $localCompanyId,
+                    ':aid'          => $payload['id'],
+                    ':name'         => $payload['name'],
+                    ':vat_number'   => $payload['vatNumber'],
+                    ':email'        => $payload['email'] ?? null,
+                    ':phone'        => $payload['phone'] ?? null,
+                    ':street'       => $payload['street'] ?? null,
+                    ':house_number' => $payload['houseNumber'] ?? null,
+                    ':city'         => $payload['city'] ?? null,
+                    ':postal_code'  => $payload['postalCode'] ?? null,
+                    ':country'      => $payload['country'] ?? null,
+                    ':is_active'    => $payload['isActive'] ? 1 : 0,
+                    ':created_at'   => $now,
+                    ':updated_at'   => $now,
+                ]
+            );
+
+            return;
+        }
+
+        // Legacy fallback zonder aid-kolom
         $this->di['db']->exec(
             'INSERT INTO company (id, name, vat_number, email, phone, street, house_number, city, postal_code, country, is_active, created_at, updated_at)
              VALUES (:id, :name, :vat_number, :email, :phone, :street, :house_number, :city, :postal_code, :country, :is_active, :created_at, :updated_at)',
@@ -212,6 +253,35 @@ class CrmCompanyReceiverService
     {
         $now = date('Y-m-d H:i:s');
 
+        if ($this->hasAidColumn()) {
+            $this->di['db']->exec(
+                'UPDATE company
+                 SET aid = :aid, name = :name, vat_number = :vat_number, email = :email, phone = :phone,
+                     street = :street, house_number = :house_number, city = :city,
+                     postal_code = :postal_code, country = :country,
+                     is_active = :is_active, updated_at = :updated_at
+                 WHERE id = :id',
+                [
+                    ':id'           => $companyId,
+                    ':aid'          => $payload['id'],
+                    ':name'         => $payload['name'],
+                    ':vat_number'   => $payload['vatNumber'],
+                    ':email'        => $payload['email'] ?? null,
+                    ':phone'        => $payload['phone'] ?? null,
+                    ':street'       => $payload['street'] ?? null,
+                    ':house_number' => $payload['houseNumber'] ?? null,
+                    ':city'         => $payload['city'] ?? null,
+                    ':postal_code'  => $payload['postalCode'] ?? null,
+                    ':country'      => $payload['country'] ?? null,
+                    ':is_active'    => $payload['isActive'] ? 1 : 0,
+                    ':updated_at'   => $now,
+                ]
+            );
+
+            return;
+        }
+
+        // Legacy fallback zonder aid-kolom
         $this->di['db']->exec(
             'UPDATE company
              SET name = :name, vat_number = :vat_number, email = :email, phone = :phone,
@@ -252,15 +322,14 @@ class CrmCompanyReceiverService
             'vatNumber'   => $this->xpathRequired($xpath, '/CompanyConfirmed/vatNumber'),
             'name'        => $this->xpathRequired($xpath, '/CompanyConfirmed/name'),
             'email'       => $this->xpathRequired($xpath, '/CompanyConfirmed/email'),
+            'phone'       => $this->xpathOptional($xpath, '/CompanyConfirmed/phone'),
+            'street'      => $this->xpathRequired($xpath, '/CompanyConfirmed/street'),
+            'houseNumber' => $this->xpathRequired($xpath, '/CompanyConfirmed/houseNumber'),
+            'postalCode'  => $this->xpathRequired($xpath, '/CompanyConfirmed/postalCode'),
+            'city'        => $this->xpathRequired($xpath, '/CompanyConfirmed/city'),
+            'country'     => $this->xpathRequired($xpath, '/CompanyConfirmed/country'),
             'isActive'    => $this->xpathBool($xpath, '/CompanyConfirmed/isActive'),
             'confirmedAt' => $this->xpathRequired($xpath, '/CompanyConfirmed/confirmedAt'),
-            // Contract 14 heeft geen adresvelden — optioneel null
-            'phone'       => null,
-            'street'      => null,
-            'houseNumber' => null,
-            'postalCode'  => null,
-            'city'        => null,
-            'country'     => null,
         ];
     }
 
@@ -363,6 +432,37 @@ class CrmCompanyReceiverService
             static fn(\LibXMLError $e): string => trim($e->message),
             $errors
         )));
+    }
+
+    private function hasAidColumn(): bool
+    {
+        if ($this->aidColumnExists !== null) {
+            return $this->aidColumnExists;
+        }
+
+        try {
+            $column = $this->di['db']->getRow("SHOW COLUMNS FROM company LIKE 'aid'");
+            $this->aidColumnExists = is_array($column) && $column !== [];
+        } catch (\Throwable) {
+            $this->aidColumnExists = false;
+        }
+
+        return $this->aidColumnExists;
+    }
+
+    private function generateLocalCompanyId(): string
+    {
+        return sprintf(
+            '%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+            random_int(0, 0xffff),
+            random_int(0, 0xffff),
+            random_int(0, 0xffff),
+            random_int(0, 0x0fff) | 0x4000,
+            random_int(0, 0x3fff) | 0x8000,
+            random_int(0, 0xffff),
+            random_int(0, 0xffff),
+            random_int(0, 0xffff)
+        );
     }
 
     // ─── Logging ──────────────────────────────────────────────────────────────

@@ -68,8 +68,8 @@ class FacturatieCompanyPublisherService
     {
         $this->ensureTopology();
 
-        $companyId = $this->resolveCompanyId($company);
-        if ($companyId === null) {
+        $outboundId = $this->resolveOutboundId($company);
+        if ($outboundId === null) {
             $this->logWarn(sprintf(
                 '[facturatie-company-publisher] Skip updated publish: missing company UUID (name=%s)',
                 (string) ($company['name'] ?? '')
@@ -78,7 +78,7 @@ class FacturatieCompanyPublisherService
             return;
         }
 
-        $payload = $this->buildUpdatedPayload($company, $companyId);
+        $payload = $this->buildUpdatedPayload($company, $outboundId);
         $xml = $this->buildUpdatedXml($payload);
 
         try {
@@ -86,13 +86,13 @@ class FacturatieCompanyPublisherService
 
             $this->logInfo(sprintf(
                 '[facturatie-company-publisher] Published updated event (company_id=%s, name=%s)',
-                $companyId,
+                $outboundId,
                 (string) ($company['name'] ?? '')
             ));
         } catch (\Throwable $exception) {
             $this->logError(sprintf(
                 '[facturatie-company-publisher] Failed publish updated event (company_id=%s, routing_key=%s, exception=%s, message=%s)',
-                $companyId,
+                $outboundId,
                 self::ROUTING_KEY_UPDATED,
                 get_class($exception),
                 $exception->getMessage()
@@ -109,8 +109,8 @@ class FacturatieCompanyPublisherService
     {
         $this->ensureTopology();
 
-        $companyId = $this->resolveCompanyId($company);
-        if ($companyId === null) {
+        $outboundId = $this->resolveOutboundId($company);
+        if ($outboundId === null) {
             $this->logWarn(sprintf(
                 '[facturatie-company-publisher] Skip deactivated publish: missing company UUID (name=%s)',
                 (string) ($company['name'] ?? '')
@@ -120,7 +120,7 @@ class FacturatieCompanyPublisherService
         }
 
         $payload = [
-            'id' => $companyId,
+            'id' => $outboundId,
             'email' => (string) ($company['email'] ?? ''),
             'deactivatedAt' => ($deactivatedAt ?? new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:sP'),
         ];
@@ -132,12 +132,12 @@ class FacturatieCompanyPublisherService
 
             $this->logInfo(sprintf(
                 '[facturatie-company-publisher] Published deactivated event (company_id=%s)',
-                $companyId
+                $outboundId
             ));
         } catch (\Throwable $exception) {
             $this->logError(sprintf(
                 '[facturatie-company-publisher] Failed publish deactivated event (company_id=%s, routing_key=%s, exception=%s, message=%s)',
-                $companyId,
+                $outboundId,
                 self::ROUTING_KEY_DEACTIVATED,
                 get_class($exception),
                 $exception->getMessage()
@@ -266,14 +266,19 @@ class FacturatieCompanyPublisherService
 
     // ─── Normalisatie-hulpmethoden ──────────────────────────────
 
-    private function resolveCompanyId(array $company): ?string
+    private function resolveOutboundId(array $company): ?string
     {
-        $id = $this->nullableString($company['id'] ?? null);
-        if ($id === null) {
-            return null;
+        $aid = $this->nullableString($company['aid'] ?? null);
+        if ($aid !== null && $this->isUuidV4($aid)) {
+            return $aid;
         }
 
-        return $this->isUuidV4($id) ? $id : null;
+        $id = $this->nullableString($company['id'] ?? null);
+        if ($id !== null && $this->isUuidV4($id)) {
+            return $id;
+        }
+
+        return null;
     }
 
     private function normalizeCountryCode(?string $value): ?string

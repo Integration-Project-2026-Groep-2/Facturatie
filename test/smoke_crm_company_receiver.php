@@ -39,6 +39,8 @@ echo "=== Smoke test: CRM → Facturatie Company Receiver ===\n\n";
 $service = new CrmCompanyReceiverService($di);
 $rabbit  = new RabbitMQService(['exchange' => 'contact.topic']);
 
+$hasAidColumn = hasAidColumn($di['db']);
+
 // Test UUIDs die voldoen aan UUID v4 patroon
 $crmId    = '550e8400-e29b-41d4-a716-446655440010';
 $vatNumber = 'BE0123456789';
@@ -140,7 +142,7 @@ echo "\n[2] Contract 14 — CompanyConfirmed (aanmaken)...\n";
 $result = $service->process('crm.company.confirmed', $validXml);
 echo "   Resultaat: $result\n";
 
-$company = $di['db']->getRow('SELECT * FROM company WHERE id = :id', [':id' => $crmId]);
+$company = fetchCompanyByCrmId($di['db'], $crmId, $hasAidColumn);
 if (!$company) {
     echo "   ❌ Bedrijf niet gevonden in DB\n";
     exit(1);
@@ -164,7 +166,7 @@ $result3 = $service->process('crm.company.updated', $updatedXml);
 echo "   Resultaat: $result3\n";
 assert($result3 === 'updated', 'Resultaat moet "updated" zijn');
 
-$updated = $di['db']->getRow('SELECT * FROM company WHERE id = :id', [':id' => $crmId]);
+$updated = fetchCompanyByCrmId($di['db'], $crmId, $hasAidColumn);
 echo "   ✅ Naam bijgewerkt: {$updated['name']}\n";
 echo "   ✅ Email: {$updated['email']}\n";
 echo "   ✅ Straat: {$updated['street']} {$updated['house_number']}, {$updated['city']}\n";
@@ -176,7 +178,7 @@ $result4 = $service->process('crm.company.deactivated', $deactivatedXml);
 echo "   Resultaat: $result4\n";
 assert($result4 === 'deactivated', 'Resultaat moet "deactivated" zijn');
 
-$deactivated = $di['db']->getRow('SELECT * FROM company WHERE id = :id', [':id' => $crmId]);
+$deactivated = fetchCompanyByCrmId($di['db'], $crmId, $hasAidColumn);
 echo '   ' . ($deactivated['is_active'] == 0 ? '✅ is_active = 0 (soft delete)' : '❌ is_active is nog 1') . "\n";
 echo '   ✅ Bedrijf bestaat nog in DB (geen hard delete): ' . ($deactivated ? 'ja' : '❌ NEE') . "\n";
 
@@ -216,3 +218,24 @@ echo "BTW-nummer:   $vatNumber\n";
 echo "Naam (final): {$deactivated['name']}\n";
 echo "is_active:    {$deactivated['is_active']} (deactivated)\n";
 echo "\n✅ Alle testen geslaagd! CRM → Facturatie company sync werkt correct.\n";
+
+function hasAidColumn($db): bool
+{
+  $column = $db->getRow("SHOW COLUMNS FROM company LIKE 'aid'");
+
+  return is_array($column) && $column !== [];
+}
+
+function fetchCompanyByCrmId($db, string $crmId, bool $hasAidColumn): ?array
+{
+  if ($hasAidColumn) {
+    $row = $db->getRow('SELECT * FROM company WHERE aid = :aid LIMIT 1', [':aid' => $crmId]);
+    if (is_array($row) && $row !== []) {
+      return $row;
+    }
+  }
+
+  $row = $db->getRow('SELECT * FROM company WHERE id = :id LIMIT 1', [':id' => $crmId]);
+
+  return (is_array($row) && $row !== []) ? $row : null;
+}

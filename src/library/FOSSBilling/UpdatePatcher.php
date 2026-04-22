@@ -414,6 +414,7 @@ class UpdatePatcher implements InjectionAwareInterface
                 // Introduce dedicated company entity and link clients to company via company_id.
                 $q = 'CREATE TABLE company (
                     id char(36) NOT NULL,
+                    aid char(36) DEFAULT NULL,
                     name varchar(255) NOT NULL,
                     vat_number varchar(32) DEFAULT NULL,
                     company_number varchar(64) DEFAULT NULL,
@@ -493,6 +494,31 @@ class UpdatePatcher implements InjectionAwareInterface
                 $this->executeSql($q);
 
                 $q = 'UPDATE company SET is_active = 1 WHERE is_active IS NULL;';
+                $this->executeSql($q);
+            },
+            47 => function (): void {
+                $columnExists = (int) $this->di['db']->getCell(
+                    "SELECT COUNT(1) FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'company' AND column_name = 'aid'"
+                );
+
+                if ($columnExists === 0) {
+                    $q = 'ALTER TABLE company ADD COLUMN aid char(36) DEFAULT NULL AFTER id;';
+                    $this->executeSql($q);
+                }
+
+                $indexExists = (int) $this->di['db']->getCell(
+                    "SELECT COUNT(1) FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'company' AND index_name = 'company_aid_idx'"
+                );
+
+                if ($indexExists === 0) {
+                    $q = 'ALTER TABLE company ADD KEY company_aid_idx (aid);';
+                    $this->executeSql($q);
+                }
+
+                $q = "UPDATE company
+                      SET aid = id
+                      WHERE aid IS NULL
+                        AND id REGEXP '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'";
                 $this->executeSql($q);
             },
         ];
