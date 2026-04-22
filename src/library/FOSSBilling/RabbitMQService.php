@@ -63,6 +63,10 @@ class RabbitMQService
             'crm.user.confirmed' => $defaultUserSchemaPath,
             'crm.user.updated' => $defaultUserSchemaPath,
             'crm.user.deactivated' => $defaultUserSchemaPath,
+            // CRM → Facturatie: company synchronisatie (Contracten 14, 19, 23)
+            'crm.company.confirmed' => $defaultUserSchemaPath,
+            'crm.company.updated' => $defaultUserSchemaPath,
+            'crm.company.deactivated' => $defaultUserSchemaPath,
         ];
     }
 
