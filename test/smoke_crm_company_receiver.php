@@ -64,6 +64,12 @@ $validXml = <<<XML
   <vatNumber>{$vatNumber}</vatNumber>
   <name>CRM Test Bedrijf NV</name>
   <email>info@crmtest.be</email>
+  <phone>+3221234567</phone>
+  <street>Teststraat</street>
+  <houseNumber>42</houseNumber>
+  <postalCode>1000</postalCode>
+  <city>Brussel</city>
+  <country>BE</country>
   <isActive>true</isActive>
   <confirmedAt>{$now}</confirmedAt>
 </CompanyConfirmed>
