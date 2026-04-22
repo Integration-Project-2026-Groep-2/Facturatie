@@ -188,7 +188,7 @@ class FacturatieCompanyPublisherService
     private function buildCreatedXml(array $payload): string
     {
         $dom = new \DOMDocument('1.0', 'UTF-8');
-        $root = $dom->createElement('CompanyCreated');
+        $root = $dom->createElement('FacturatieCompanyCreated');
 
         $this->appendRequiredElement($dom, $root, 'name', $payload['name']);
         $this->appendOptionalElement($dom, $root, 'vatNumber', $payload['vatNumber']);
@@ -209,7 +209,7 @@ class FacturatieCompanyPublisherService
     private function buildUpdatedXml(array $payload): string
     {
         $dom = new \DOMDocument('1.0', 'UTF-8');
-        $root = $dom->createElement('CompanyUpdated');
+        $root = $dom->createElement('FacturatieCompanyUpdated');
 
         $this->appendRequiredElement($dom, $root, 'id', $payload['id']);
         $this->appendOptionalElement($dom, $root, 'vatNumber', $payload['vatNumber']);
@@ -232,7 +232,7 @@ class FacturatieCompanyPublisherService
     private function buildDeactivatedXml(array $payload): string
     {
         $dom = new \DOMDocument('1.0', 'UTF-8');
-        $root = $dom->createElement('CompanyDeactivated');
+        $root = $dom->createElement('FacturatieCompanyDeactivated');
 
         $this->appendRequiredElement($dom, $root, 'id', $payload['id']);
         $this->appendRequiredElement($dom, $root, 'email', $payload['email']);

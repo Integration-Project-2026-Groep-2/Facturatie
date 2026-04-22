@@ -19,11 +19,11 @@ Flow 2 maakt Facturatie (FOSSBilling) verantwoordelijk voor het publiceren van b
 
 ## 2. Routing keys & XML contracten
 
-| Actie              | Routing key                      | XML root element       | XSD element          |
-| ------------------ | -------------------------------- | ---------------------- | -------------------- |
-| Bedrijf aangemaakt | `facturatie.company.created`     | `<CompanyCreated>`     | `CompanyCreated`     |
-| Bedrijf bijgewerkt | `facturatie.company.updated`     | `<CompanyUpdated>`     | `CompanyUpdated`     |
-| Bedrijf verwijderd | `facturatie.company.deactivated` | `<CompanyDeactivated>` | `CompanyDeactivated` |
+| Actie              | Routing key                      | XML root element                 | XSD element                    |
+| ------------------ | -------------------------------- | -------------------------------- | ------------------------------ |
+| Bedrijf aangemaakt | `facturatie.company.created`     | `<FacturatieCompanyCreated>`     | `FacturatieCompanyCreated`     |
+| Bedrijf bijgewerkt | `facturatie.company.updated`     | `<FacturatieCompanyUpdated>`     | `FacturatieCompanyUpdated`     |
+| Bedrijf verwijderd | `facturatie.company.deactivated` | `<FacturatieCompanyDeactivated>` | `FacturatieCompanyDeactivated` |
 
 Alle berichten worden vóór het versturen gevalideerd tegen het XSD-schema.
 
@@ -43,7 +43,7 @@ XSD-schema met de definities voor alle drie de outgoing events. Gebaseerd op het
 - `EmailType` — e-mailadres, max 254 tekens
 - `BelgianVatNumberType` — Belgisch BTW-nummer (`BE` + 10 cijfers)
 
-**`CompanyCreated` velden:**
+**`FacturatieCompanyCreated` velden:**
 
 | Veld          | Type                   | Verplicht |
 | ------------- | ---------------------- | --------- |
@@ -58,7 +58,7 @@ XSD-schema met de definities voor alle drie de outgoing events. Gebaseerd op het
 | `country`     | `CountryCodeType`      | nee       |
 | `createdAt`   | `ISO8601DateTimeType`  | ja        |
 
-**`CompanyUpdated` velden:**
+**`FacturatieCompanyUpdated` velden:**
 
 | Veld          | Type                   | Verplicht |
 | ------------- | ---------------------- | --------- |
@@ -75,7 +75,7 @@ XSD-schema met de definities voor alle drie de outgoing events. Gebaseerd op het
 | `isActive`    | `xs:boolean`           | ja        |
 | `updatedAt`   | `ISO8601DateTimeType`  | ja        |
 
-**`CompanyDeactivated` velden:**
+**`FacturatieCompanyDeactivated` velden:**
 
 | Veld            | Type                  | Verplicht |
 | --------------- | --------------------- | --------- |
@@ -100,11 +100,11 @@ DEFAULT_EXCHANGE        = 'company.topic'
 
 **Publieke methoden:**
 
-| Methode                              | Beschrijving                                             |
-| ------------------------------------ | -------------------------------------------------------- |
-| `publishCreated(array $company)`     | Publiceert een `CompanyCreated` event na aanmaken        |
-| `publishUpdated(array $company)`     | Publiceert een `CompanyUpdated` event na bijwerken       |
-| `publishDeactivated(array $company)` | Publiceert een `CompanyDeactivated` event na verwijderen |
+| Methode                              | Beschrijving                                                       |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `publishCreated(array $company)`     | Publiceert een `FacturatieCompanyCreated` event na aanmaken        |
+| `publishUpdated(array $company)`     | Publiceert een `FacturatieCompanyUpdated` event na bijwerken       |
+| `publishDeactivated(array $company)` | Publiceert een `FacturatieCompanyDeactivated` event na verwijderen |
 
 **Interne werking:**
 
@@ -163,6 +163,8 @@ De drie company routing keys zijn geregistreerd in de `$schemaPaths` map zodat `
 ```
 
 Het schemapad wijst naar `src/data/contracts/facturatie_company_contract.xsd`.
+
+Voor inkomende CRM company-routes (`crm.company.confirmed`, `crm.company.updated`, `crm.company.deactivated`) wordt nu het gedeelde schema `src/data/contracts/user_data_contract.xsd` gebruikt.
 
 ---
 
@@ -258,13 +260,14 @@ Created company id=<uuid>
 Updated company id=<uuid>
 Deleted company id=<uuid>
 --- Captured messages ---
-facturatie.company.created | CompanyCreated
-facturatie.company.updated | CompanyUpdated
-facturatie.company.deactivated | CompanyDeactivated
+facturatie.company.created | FacturatieCompanyCreated
+facturatie.company.updated | FacturatieCompanyUpdated
+facturatie.company.deactivated | FacturatieCompanyDeactivated
 --- Assertions ---
 created=yes
 updated=yes
 deactivated=yes
+roots=ok
 Smoke test passed: Company create/update/delete correctly emits facturatie.company.* CRM sync messages.
 ```
 
