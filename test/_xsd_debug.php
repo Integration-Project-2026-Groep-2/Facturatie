@@ -12,7 +12,7 @@ $xml = '<?xml version="1.0" encoding="UTF-8"?>
 </CompanyConfirmed>';
 
 $d->loadXML($xml);
-$ok = $d->schemaValidate('/var/www/html/data/contracts/crm_company_contract.xsd');
+$ok = $d->schemaValidate('/var/www/html/data/contracts/user_data_contract.xsd');
 $errs = libxml_get_errors();
 foreach ($errs as $e) {
     echo 'ERROR: ' . trim($e->message) . ' (line ' . $e->line . ')' . PHP_EOL;

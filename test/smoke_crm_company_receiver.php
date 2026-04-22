@@ -50,7 +50,7 @@ $di['db']->exec("DELETE FROM company WHERE id = :id OR vat_number = :vat", [':id
 // ─── Test 1: XSD validatie ────────────────────────────────────────────────────
 echo "[1] XSD validatie testen...\n";
 
-$xsdPath = '/var/www/html/data/contracts/crm_company_contract.xsd';
+$xsdPath = '/var/www/html/data/contracts/user_data_contract.xsd';
 if (!file_exists($xsdPath)) {
     echo "   ❌ XSD niet gevonden: $xsdPath\n";
     exit(1);

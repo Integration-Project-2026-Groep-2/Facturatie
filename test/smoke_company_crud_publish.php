@@ -113,6 +113,30 @@ $foundCreated = in_array('facturatie.company.created', $keys, true);
 $foundUpdated = in_array('facturatie.company.updated', $keys, true);
 $foundDeactivated = in_array('facturatie.company.deactivated', $keys, true);
 
+$expectedRootsByRoutingKey = [
+    'facturatie.company.created' => 'FacturatieCompanyCreated',
+    'facturatie.company.updated' => 'FacturatieCompanyUpdated',
+    'facturatie.company.deactivated' => 'FacturatieCompanyDeactivated',
+];
+
+$rootExpectationsOk = true;
+foreach ($messages as $item) {
+    $expectedRoot = $expectedRootsByRoutingKey[$item['routing_key']] ?? null;
+    if ($expectedRoot === null) {
+        continue;
+    }
+
+    if ($item['root'] !== $expectedRoot) {
+        $rootExpectationsOk = false;
+        fwrite(STDERR, sprintf(
+            'Unexpected root for %s: expected %s, got %s',
+            $item['routing_key'],
+            $expectedRoot,
+            $item['root']
+        ) . PHP_EOL);
+    }
+}
+
 echo '--- Captured messages ---' . PHP_EOL;
 foreach ($messages as $item) {
     echo $item['routing_key'] . ' | ' . $item['root'] . PHP_EOL;
@@ -122,8 +146,9 @@ echo '--- Assertions ---' . PHP_EOL;
 echo 'created=' . ($foundCreated ? 'yes' : 'no') . PHP_EOL;
 echo 'updated=' . ($foundUpdated ? 'yes' : 'no') . PHP_EOL;
 echo 'deactivated=' . ($foundDeactivated ? 'yes' : 'no') . PHP_EOL;
+echo 'roots=' . ($rootExpectationsOk ? 'ok' : 'mismatch') . PHP_EOL;
 
-if (!$foundCreated || !$foundUpdated || !$foundDeactivated) {
+if (!$foundCreated || !$foundUpdated || !$foundDeactivated || !$rootExpectationsOk) {
     fwrite(STDERR, 'Missing expected company CRUD events in captured RabbitMQ messages.' . PHP_EOL);
     exit(1);
 }
