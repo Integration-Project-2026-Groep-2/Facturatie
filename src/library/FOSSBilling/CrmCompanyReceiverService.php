@@ -56,6 +56,10 @@ class CrmCompanyReceiverService
 
     // ─── Handlers per contract ─────────────────────────────────────────────────
 
+    /**
+     * Contract 14: crm.company.confirmed
+     * Maakt een nieuw bedrijf aan of update een bestaand bedrijf (upsert).
+     */
     private function processConfirmed(string $xml): string
     {
         $payload = $this->parseConfirmed($xml);
@@ -63,6 +67,10 @@ class CrmCompanyReceiverService
         return $this->upsertCompany($payload, 'crm.company.confirmed');
     }
 
+    /**
+     * Contract 19: crm.company.updated
+     * Vervangt de lokale kopie volledig (geen partial merge).
+     */
     private function processUpdated(string $xml): string
     {
         $payload = $this->parseUpdated($xml);
@@ -70,6 +78,10 @@ class CrmCompanyReceiverService
         return $this->upsertCompany($payload, 'crm.company.updated');
     }
 
+    /**
+     * Contract 23: crm.company.deactivated
+     * Soft delete: zet isActive = false. Nooit hard deleten.
+     */
     private function processDeactivated(string $xml): string
     {
         $payload = $this->parseDeactivated($xml);
@@ -105,6 +117,9 @@ class CrmCompanyReceiverService
 
     // ─── Upsert logica ─────────────────────────────────────────────────────────
 
+    /**
+     * Maakt een bedrijf aan of werkt het bij op basis van de CRM UUID of btw-nummer.
+     */
     private function upsertCompany(array $payload, string $source): string
     {
         $existing = $this->findCompany((string) $payload['id'], (string) $payload['vatNumber']);
@@ -136,10 +151,14 @@ class CrmCompanyReceiverService
     }
 
     /**
+     * Zoekt een bedrijf op in Facturatie.
+     * Prioriteit: 1) CRM UUID als id, 2) vat_number als fallback.
+     *
      * @return array<string, mixed>|null
      */
     private function findCompany(string $crmId, string $vatNumber): ?array
     {
+        // Primaire lookup: CRM UUID als bedrijfs-id
         $row = $this->di['db']->getRow(
             'SELECT * FROM company WHERE id = :id LIMIT 1',
             [':id' => $crmId]
@@ -148,6 +167,7 @@ class CrmCompanyReceiverService
             return $row;
         }
 
+        // Fallback: zoek op btw-nummer (voor bedrijven aangemaakt vóór CRM sync)
         $row = $this->di['db']->getRow(
             'SELECT * FROM company WHERE vat_number = :vat LIMIT 1',
             [':vat' => $vatNumber]
@@ -156,6 +176,9 @@ class CrmCompanyReceiverService
         return (is_array($row) && $row !== []) ? $row : null;
     }
 
+    /**
+     * Maakt een nieuw bedrijf aan met de CRM UUID als primaire sleutel.
+     */
     private function createCompany(array $payload): void
     {
         $now = date('Y-m-d H:i:s');
@@ -181,6 +204,10 @@ class CrmCompanyReceiverService
         );
     }
 
+    /**
+     * Werkt een bestaand bedrijf bij met de data uit het CRM bericht.
+     * Volledige vervanging (geen partial merge).
+     */
     private function updateCompany(string $companyId, array $payload): void
     {
         $now = date('Y-m-d H:i:s');
@@ -211,6 +238,11 @@ class CrmCompanyReceiverService
 
     // ─── XML Parsing ───────────────────────────────────────────────────────────
 
+    /**
+     * Parset een CompanyConfirmed XML bericht (Contract 14).
+     *
+     * @return array{id: string, vatNumber: string, name: string, email: string, isActive: bool, confirmedAt: string}
+     */
     private function parseConfirmed(string $xml): array
     {
         $xpath = $this->buildXPath($xml);
@@ -222,6 +254,7 @@ class CrmCompanyReceiverService
             'email'       => $this->xpathRequired($xpath, '/CompanyConfirmed/email'),
             'isActive'    => $this->xpathBool($xpath, '/CompanyConfirmed/isActive'),
             'confirmedAt' => $this->xpathRequired($xpath, '/CompanyConfirmed/confirmedAt'),
+            // Contract 14 heeft geen adresvelden — optioneel null
             'phone'       => null,
             'street'      => null,
             'houseNumber' => null,
@@ -231,6 +264,11 @@ class CrmCompanyReceiverService
         ];
     }
 
+    /**
+     * Parset een CompanyUpdated XML bericht (Contract 19).
+     *
+     * @return array{id: string, vatNumber: string, name: string, isActive: bool, updatedAt: string}
+     */
     private function parseUpdated(string $xml): array
     {
         $xpath = $this->buildXPath($xml);
@@ -251,6 +289,11 @@ class CrmCompanyReceiverService
         ];
     }
 
+    /**
+     * Parset een CompanyDeactivated XML bericht (Contract 23).
+     *
+     * @return array{id: string, vatNumber: string, deactivatedAt: string}
+     */
     private function parseDeactivated(string $xml): array
     {
         $xpath = $this->buildXPath($xml);
