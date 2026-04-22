@@ -373,7 +373,7 @@ class Service implements InjectionAwareInterface
         $invoiceType = ((float) ($invoice['total'] ?? 0)) < 0 ? 'CREDIT' : 'REGULAR';
 
         $dom = new \DOMDocument('1.0', 'UTF-8');
-        $root = $dom->createElement('InvoiceFinalized');
+        $root = $dom->createElement('invoice_finalized');
 
         $root->appendChild($dom->createElement('invoiceNumber', $invoiceNumber));
         $root->appendChild($dom->createElement('recipientEmail', $recipientEmail));
