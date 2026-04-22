@@ -54,7 +54,7 @@
        Richting: Facturatie -> CRM
        Use case: nieuw bedrijf aangemaakt in FOSSBilling, synchronisatie naar CRM.
   ============================================================ -->
-  <xs:element name="CompanyCreated">
+  <xs:element name="FacturatieCompanyCreated">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="name"        type="xs:string"/>
@@ -77,7 +77,7 @@
        Richting: Facturatie -> CRM
        Use case: een bestaand CRM-gekoppeld bedrijf bijwerken met het volledige object.
   ============================================================ -->
-  <xs:element name="CompanyUpdated">
+  <xs:element name="FacturatieCompanyUpdated">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="id"          type="UUIDType"/>
@@ -102,7 +102,7 @@
        Richting: Facturatie -> CRM
        Use case: CRM verzoeken om een bestaand gekoppeld bedrijf te deactiveren.
   ============================================================ -->
-  <xs:element name="CompanyDeactivated">
+  <xs:element name="FacturatieCompanyDeactivated">
     <xs:complexType>
       <xs:sequence>
         <xs:element name="id"            type="UUIDType"/>

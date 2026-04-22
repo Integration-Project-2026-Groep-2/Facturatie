@@ -66,14 +66,10 @@ class RabbitMQService
             'crm.user.confirmed' => $defaultUserSchemaPath,
             'crm.user.updated' => $defaultUserSchemaPath,
             'crm.user.deactivated' => $defaultUserSchemaPath,
-            // Contract K-01: inkomende factuurverzoeken van Team Kassa
-            'kassa.invoice.requested' => $defaultKassaSchemaPath,
-            // Contract K-02: dagafsluitbatch van Team Kassa
+            'crm.company.confirmed' => $defaultUserSchemaPath,
+            'crm.company.updated' => $defaultUserSchemaPath,
+            'crm.company.deactivated' => $defaultUserSchemaPath,
             'kassa.closed' => $defaultKassaBatchSchemaPath,
-            // CRM → Facturatie: company synchronisatie (Contracten 14, 19, 23)
-            'crm.company.confirmed'   => $defaultCrmCompanySchemaPath,
-            'crm.company.updated'     => $defaultCrmCompanySchemaPath,
-            'crm.company.deactivated' => $defaultCrmCompanySchemaPath,
         ];
     }
 

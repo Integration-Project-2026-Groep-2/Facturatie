@@ -72,6 +72,16 @@
                                             </svg>
                                         </a>
                                     {% endif %}
+                                    <a class="btn btn-icon api-link"
+                                       href="{{ 'api/admin/company/delete'|link({ 'id': company.id, 'CSRFToken': CSRFToken }) }}"
+                                       data-api-confirm="{{ 'Are you sure you want to permanently delete this company from the database? This cannot be undone.'|trans }}"
+                                       data-api-reload="1"
+                                       title="{{ 'Delete Permanently'|trans }}"
+                                       style="opacity: 0.6;">
+                                        <svg class="icon" style="color: #dc3545;">
+                                            <use xlink:href="#delete" />
+                                        </svg>
+                                    </a>
                                 </div>
                             </td>
                         </tr>

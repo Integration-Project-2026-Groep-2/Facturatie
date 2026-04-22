@@ -385,7 +385,7 @@ class CrmCompanyReceiverService
         }
     }
 
-    private function logError(string $message): void
+    public function logError(string $message): void
     {
         if (isset($this->di['logger'])) {
             $this->di['logger']->setChannel('application')->err($message);
