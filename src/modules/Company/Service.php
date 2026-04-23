@@ -211,9 +211,12 @@ class Service implements InjectionAwareInterface
 
     private function tryPublishUpdated(array $companyData): void
     {
+        $publisher = new FacturatieCompanyPublisherService($this->di);
         try {
-            $publisher = new FacturatieCompanyPublisherService($this->di);
             $publisher->publishUpdated($companyData);
+        } catch (\FOSSBilling\MissingCompanyAidException $exception) {
+            // Let this bubble up to the UI
+            throw $exception;
         } catch (\Throwable $exception) {
             $this->logPublishError('updated', $companyData, $exception);
         }
@@ -221,9 +224,12 @@ class Service implements InjectionAwareInterface
 
     private function tryPublishDeactivated(array $companyData): void
     {
+        $publisher = new FacturatieCompanyPublisherService($this->di);
         try {
-            $publisher = new FacturatieCompanyPublisherService($this->di);
             $publisher->publishDeactivated($companyData);
+        } catch (\FOSSBilling\MissingCompanyAidException $exception) {
+            // Let this bubble up to the UI
+            throw $exception;
         } catch (\Throwable $exception) {
             $this->logPublishError('deactivated', $companyData, $exception);
         }

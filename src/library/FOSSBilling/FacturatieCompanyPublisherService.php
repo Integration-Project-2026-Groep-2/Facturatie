@@ -63,6 +63,8 @@ class FacturatieCompanyPublisherService
 
     /**
      * Publiceert een CompanyUpdated-event nadat een bedrijf is gewijzigd in FOSSBilling.
+     *
+     * @throws MissingCompanyAidException Wanneer company aid (CRM ID) ontbreekt of ongeldig is.
      */
     public function publishUpdated(array $company): void
     {
@@ -70,12 +72,12 @@ class FacturatieCompanyPublisherService
 
         $outboundId = $this->resolveOutboundId($company);
         if ($outboundId === null) {
-            $this->logWarn(sprintf(
-                '[facturatie-company-publisher] Skip updated publish: missing company aid UUID (name=%s)',
-                (string) ($company['name'] ?? '')
-            ));
-
-            return;
+            throw new MissingCompanyAidException(
+                sprintf(
+                    'Cannot publish company update: CRM ID (aid) is missing or invalid for company "%s". The CRM system must assign an ID before updates can be synchronized.',
+                    (string) ($company['name'] ?? 'unknown')
+                )
+            );
         }
 
         $payload = $this->buildUpdatedPayload($company, $outboundId);
@@ -104,6 +106,8 @@ class FacturatieCompanyPublisherService
 
     /**
      * Publiceert een CompanyDeactivated-event wanneer een bedrijf wordt gedeactiveerd in FOSSBilling.
+     *
+     * @throws MissingCompanyAidException Wanneer company aid (CRM ID) ontbreekt of ongeldig is.
      */
     public function publishDeactivated(array $company, ?\DateTimeInterface $deactivatedAt = null): void
     {
@@ -111,12 +115,12 @@ class FacturatieCompanyPublisherService
 
         $outboundId = $this->resolveOutboundId($company);
         if ($outboundId === null) {
-            $this->logWarn(sprintf(
-                '[facturatie-company-publisher] Skip deactivated publish: missing company aid UUID (name=%s)',
-                (string) ($company['name'] ?? '')
-            ));
-
-            return;
+            throw new MissingCompanyAidException(
+                sprintf(
+                    'Cannot publish company deactivation: CRM ID (aid) is missing or invalid for company "%s". The CRM system must assign an ID before deactivation can be synchronized.',
+                    (string) ($company['name'] ?? 'unknown')
+                )
+            );
         }
 
         $payload = [
