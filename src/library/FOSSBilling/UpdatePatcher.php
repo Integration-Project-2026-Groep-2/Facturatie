@@ -515,11 +515,8 @@ class UpdatePatcher implements InjectionAwareInterface
                     $this->executeSql($q);
                 }
 
-                $q = "UPDATE company
-                      SET aid = id
-                      WHERE aid IS NULL
-                        AND id REGEXP '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'";
-                $this->executeSql($q);
+                                // Do not auto-backfill aid from local id.
+                                // aid must represent the CRM identifier only.
             },
         ];
         ksort($patches, SORT_NATURAL);

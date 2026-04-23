@@ -57,6 +57,14 @@ $companyId = $adminApi->create([
 
 echo 'Created company id=' . $companyId . PHP_EOL;
 
+// Simuleer CRM-koppeling: updated/deactivated events vereisen een CRM aid.
+$crmAid = '550e8400-e29b-41d4-a716-446655440010';
+$di['db']->exec('UPDATE company SET aid = :aid WHERE id = :id', [
+    ':aid' => $crmAid,
+    ':id' => $companyId,
+]);
+echo 'Linked company aid=' . $crmAid . PHP_EOL;
+
 // ─── 2. Bijwerken ────────────────────────────────────────────
 
 $adminApi->update([
