@@ -71,7 +71,7 @@ class FacturatieCompanyPublisherService
         $outboundId = $this->resolveOutboundId($company);
         if ($outboundId === null) {
             $this->logWarn(sprintf(
-                '[facturatie-company-publisher] Skip updated publish: missing company UUID (name=%s)',
+                '[facturatie-company-publisher] Skip updated publish: missing company aid UUID (name=%s)',
                 (string) ($company['name'] ?? '')
             ));
 
@@ -112,7 +112,7 @@ class FacturatieCompanyPublisherService
         $outboundId = $this->resolveOutboundId($company);
         if ($outboundId === null) {
             $this->logWarn(sprintf(
-                '[facturatie-company-publisher] Skip deactivated publish: missing company UUID (name=%s)',
+                '[facturatie-company-publisher] Skip deactivated publish: missing company aid UUID (name=%s)',
                 (string) ($company['name'] ?? '')
             ));
 
@@ -271,11 +271,6 @@ class FacturatieCompanyPublisherService
         $aid = $this->nullableString($company['aid'] ?? null);
         if ($aid !== null && $this->isUuidV4($aid)) {
             return $aid;
-        }
-
-        $id = $this->nullableString($company['id'] ?? null);
-        if ($id !== null && $this->isUuidV4($id)) {
-            return $id;
         }
 
         return null;

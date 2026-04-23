@@ -149,6 +149,7 @@ class Service implements InjectionAwareInterface
 
         $this->tryPublishUpdated(array_merge($payload, [
             'id' => $company['id'],
+            'aid' => $company['aid'] ?? null,
             'is_active' => (int) ($company['is_active'] ?? 1) === 1,
             'updated_at' => $now,
         ]));
@@ -163,7 +164,9 @@ class Service implements InjectionAwareInterface
         ]);
         $this->di['db']->exec('DELETE FROM company WHERE id = :id', [':id' => $company['id']]);
 
-        $this->tryPublishDeactivated($company);
+        $this->tryPublishDeactivated(array_merge($company, [
+            'aid' => $company['aid'] ?? null,
+        ]));
 
         return true;
     }
@@ -187,7 +190,9 @@ class Service implements InjectionAwareInterface
 
         $company['is_active'] = 0;
         $company['updated_at'] = $now;
-        $this->tryPublishDeactivated($company);
+        $this->tryPublishDeactivated(array_merge($company, [
+            'aid' => $company['aid'] ?? null,
+        ]));
 
         return true;
     }
