@@ -195,14 +195,14 @@ class FacturatieCompanyPublisherService
         $root = $dom->createElement('FacturatieCompanyCreated');
 
         $this->appendRequiredElement($dom, $root, 'name', $payload['name']);
-        $this->appendOptionalElement($dom, $root, 'vatNumber', $payload['vatNumber']);
-        $this->appendOptionalElement($dom, $root, 'email', $payload['email']);
+        $this->appendRequiredElement($dom, $root, 'vatNumber', $payload['vatNumber']);
+        $this->appendRequiredElement($dom, $root, 'email', $payload['email']);
         $this->appendOptionalElement($dom, $root, 'phone', $payload['phone']);
-        $this->appendOptionalElement($dom, $root, 'street', $payload['street']);
-        $this->appendOptionalElement($dom, $root, 'houseNumber', $payload['houseNumber']);
-        $this->appendOptionalElement($dom, $root, 'postalCode', $payload['postalCode']);
-        $this->appendOptionalElement($dom, $root, 'city', $payload['city']);
-        $this->appendOptionalElement($dom, $root, 'country', $payload['country']);
+        $this->appendRequiredElement($dom, $root, 'street', $payload['street']);
+        $this->appendRequiredElement($dom, $root, 'houseNumber', $payload['houseNumber']);
+        $this->appendRequiredElement($dom, $root, 'postalCode', $payload['postalCode']);
+        $this->appendRequiredElement($dom, $root, 'city', $payload['city']);
+        $this->appendRequiredElement($dom, $root, 'country', $payload['country']);
         $this->appendRequiredElement($dom, $root, 'createdAt', $payload['createdAt']);
 
         $dom->appendChild($root);
@@ -216,15 +216,15 @@ class FacturatieCompanyPublisherService
         $root = $dom->createElement('FacturatieCompanyUpdated');
 
         $this->appendRequiredElement($dom, $root, 'id', $payload['id']);
-        $this->appendOptionalElement($dom, $root, 'vatNumber', $payload['vatNumber']);
+        $this->appendRequiredElement($dom, $root, 'vatNumber', $payload['vatNumber']);
         $this->appendRequiredElement($dom, $root, 'name', $payload['name']);
-        $this->appendOptionalElement($dom, $root, 'email', $payload['email']);
+        $this->appendRequiredElement($dom, $root, 'email', $payload['email']);
         $this->appendOptionalElement($dom, $root, 'phone', $payload['phone']);
-        $this->appendOptionalElement($dom, $root, 'street', $payload['street']);
-        $this->appendOptionalElement($dom, $root, 'houseNumber', $payload['houseNumber']);
-        $this->appendOptionalElement($dom, $root, 'postalCode', $payload['postalCode']);
-        $this->appendOptionalElement($dom, $root, 'city', $payload['city']);
-        $this->appendOptionalElement($dom, $root, 'country', $payload['country']);
+        $this->appendRequiredElement($dom, $root, 'street', $payload['street']);
+        $this->appendRequiredElement($dom, $root, 'houseNumber', $payload['houseNumber']);
+        $this->appendRequiredElement($dom, $root, 'postalCode', $payload['postalCode']);
+        $this->appendRequiredElement($dom, $root, 'city', $payload['city']);
+        $this->appendRequiredElement($dom, $root, 'country', $payload['country']);
         $this->appendRequiredElement($dom, $root, 'isActive', $this->boolToXml($payload['isActive']));
         $this->appendRequiredElement($dom, $root, 'updatedAt', $payload['updatedAt']);
 
@@ -283,11 +283,31 @@ class FacturatieCompanyPublisherService
     private function normalizeCountryCode(?string $value): ?string
     {
         $normalized = strtoupper(trim((string) $value));
-        if ($normalized === '' || !preg_match('/^[A-Z]{2}$/', $normalized)) {
+        if ($normalized === '') {
             return null;
         }
 
-        return $normalized;
+        if (function_exists('iconv')) {
+            $ascii = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $normalized);
+            if (is_string($ascii) && $ascii !== '') {
+                $normalized = strtoupper(trim($ascii));
+            }
+        }
+
+        if (preg_match('/^[A-Z]{2}$/', $normalized)) {
+            return $normalized;
+        }
+
+        $mapped = match ($normalized) {
+            'BELGIUM', 'BELGIE', 'BELGIQUE' => 'BE',
+            default => null,
+        };
+
+        if ($mapped === null) {
+            return null;
+        }
+
+        return $mapped;
     }
 
     private function toIso8601(?string $value): string
