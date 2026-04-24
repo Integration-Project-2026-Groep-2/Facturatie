@@ -31,7 +31,6 @@
                         <tr>
                             <th>{{ 'Name'|trans }}</th>
                             <th>{{ 'VAT Number'|trans }}</th>
-                            <th>{{ 'Company Number'|trans }}</th>
                             <th>{{ 'Email'|trans }}</th>
                             <th>{{ 'Status'|trans }}</th>
                             <th>{{ 'Linked clients'|trans }}</th>
@@ -44,7 +43,6 @@
                         <tr>
                             <td><a href="{{ 'company/manage'|alink }}/{{ company.id }}">{{ company.name }}</a></td>
                             <td>{{ company.vat_number|default('-') }}</td>
-                            <td>{{ company.company_number|default('-') }}</td>
                             <td>{{ company.email|default('-') }}</td>
                             <td>
                                 {% if company.is_active %}
@@ -87,7 +85,7 @@
                         </tr>
                         {% else %}
                         <tr>
-                            <td class="text-muted" colspan="7">{{ 'The list is empty'|trans }}</td>
+                            <td class="text-muted" colspan="6">{{ 'The list is empty'|trans }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -111,6 +109,12 @@
                         <label class="form-label col-3 col-form-label">{{ 'VAT Number'|trans }}</label>
                         <div class="col">
                             <input class="form-control" type="text" name="vat_number">
+                        </div>
+                    </div>
+                    <div class="mb-3 row">
+                        <label class="form-label col-3 col-form-label">{{ 'Company Number'|trans }}</label>
+                        <div class="col">
+                            <input class="form-control" type="text" name="company_number">
                         </div>
                     </div>
                     <div class="mb-3 row">

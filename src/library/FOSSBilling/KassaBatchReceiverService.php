@@ -25,7 +25,7 @@ use Pimple\Container;
  *  1. XML parsen
  *  2. Deduplicatie op batchId
  *  3. Per gebruiker: individuele factuur aanmaken
- *  4. Per bedrijf: samenvattingsfactuur genereren
+ *  4. Per bedrijf: samenvattingsfactuur genereren, goedkeuren en publiceren
  *  5. Batch markeren als verwerkt
  */
 class KassaBatchReceiverService
@@ -183,8 +183,11 @@ class KassaBatchReceiverService
             $invoiceService = $this->di['mod_service']('Invoice');
             $summary = $invoiceService->generateCompanySummaryInvoiceByCompanyId($companyId);
 
+            $invoiceService->approveInvoice($summary, ['id' => $summary->id]);
+            $this->publishInvoiceFinalized($summary, (string) ($summary->buyer_email ?? ''), $batchId);
+
             $this->logInfo(sprintf(
-                '[kassa-batch-receiver] Bedrijfsfactuur aangemaakt invoice_id=%d (companyId=%s, batchId=%s)',
+                '[kassa-batch-receiver] Bedrijfsfactuur aangemaakt, goedgekeurd en gepubliceerd invoice_id=%d (companyId=%s, batchId=%s)',
                 $summary->id,
                 $companyId,
                 $batchId
@@ -194,6 +197,60 @@ class KassaBatchReceiverService
                 '[kassa-batch-receiver] Bedrijfsfactuur overgeslagen (companyId=%s, batchId=%s, reden=%s)',
                 $companyId,
                 $batchId,
+                $exception->getMessage()
+            ));
+        } catch (\Throwable $exception) {
+            $this->logError(sprintf(
+                '[kassa-batch-receiver] Bedrijfsfactuur goedkeuren/publiceren mislukt (companyId=%s, batchId=%s, exception=%s, message=%s)',
+                $companyId,
+                $batchId,
+                get_class($exception),
+                $exception->getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Publiceert een facturatie.invoice.finalized bericht naar de Mailing service.
+     */
+    private function publishInvoiceFinalized(
+        \Model_Invoice $invoice,
+        string $recipientEmail,
+        string $batchId
+    ): void {
+        try {
+            $invoiceService = $this->di['mod_service']('Invoice');
+            $invoiceArray = $invoiceService->toApiArray($invoice, false, null);
+
+            $pdfBaseUrl = (string) (getenv('APP_URL') ?: 'http://localhost:8080');
+            $pdfUrl = rtrim($pdfBaseUrl, '/') . '/invoice/pdf/' . ($invoiceArray['hash'] ?? '');
+
+            $dom = new \DOMDocument('1.0', 'UTF-8');
+            $root = $dom->createElement('InvoiceFinalized');
+            $invoiceType = ((float) ($invoiceArray['total'] ?? 0)) < 0 ? 'CREDIT' : 'REGULAR';
+
+            $root->appendChild($dom->createElement('invoiceNumber', (string) ($invoiceArray['serie_nr'] ?? '')));
+            $root->appendChild($dom->createElement('recipientEmail', $recipientEmail));
+            $root->appendChild($dom->createElement('pdfUrl', $pdfUrl));
+            $root->appendChild($dom->createElement('totalAmount', (string) round((float) ($invoiceArray['total'] ?? 0), 2)));
+            $root->appendChild($dom->createElement('type', $invoiceType));
+            $dom->appendChild($root);
+
+            $rabbit = new RabbitMQService();
+            $rabbit->publishXML('facturatie.invoice.finalized', $dom->saveXML() ?: '');
+            $rabbit->close();
+
+            $this->logInfo(sprintf(
+                '[kassa-batch-receiver] invoice.finalized gepubliceerd voor invoice=%s (batchId=%s)',
+                $invoiceArray['serie_nr'] ?? $invoice->id,
+                $batchId
+            ));
+        } catch (\Throwable $exception) {
+            $this->logError(sprintf(
+                '[kassa-batch-receiver] invoice.finalized publicatie mislukt (invoice_id=%s, batchId=%s, exception=%s, message=%s)',
+                $invoice->id,
+                $batchId,
+                get_class($exception),
                 $exception->getMessage()
             ));
         }

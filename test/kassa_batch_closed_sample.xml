@@ -1,4 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Example kassa_batch_closed message (Contract K-02)
+  IMPORTANT: Each message MUST have a unique batchId for processing.
+  Duplicate batchIds are deduplicated and rejected, even if the invoice was deleted.
+  To test again: generate a new UUID for batchId before sending.
+-->
 <BatchClosed>
   <batchId>3f7a1c2e-9b44-4d71-a8e5-2c9f6a7d1b30</batchId>
   <closedAt>2026-04-22T18:45:00+00:00</closedAt>
