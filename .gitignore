@@ -6,8 +6,6 @@ vendor/
 src/data/cache/
 src/data/log/
 src/data/uploads/
-src/data/.!!0eN/sf_cache/
-src/data/.!!UTI/sf_cache/
 
 # IDE and editor files
 .vscode/
