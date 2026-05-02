@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<BatchClosed>
+  <batchId>3f7a1c2e-9b44-4d71-a8e5-2c9f6a7d1b30</batchId>
+  <closedAt>2026-04-22T18:45:00+00:00</closedAt>
+  <currency>EUR</currency>
+
+  <users>
+    <user>
+      <userId>8a9b2a3e-6d1f-4b58-8c20-2f5f3f5c4d11</userId>
+      <items>
+        <item>
+          <productName>Office Chair</productName>
+          <quantity>1</quantity>
+          <unitPrice>199.99</unitPrice>
+          <totalPrice>199.99</totalPrice>
+        </item>
+        <item>
+          <productName>Desk Lamp</productName>
+          <quantity>2</quantity>
+          <unitPrice>24.50</unitPrice>
+          <totalPrice>49.00</totalPrice>
+        </item>
+      </items>
+      <totalAmount>248.99</totalAmount>
+    </user>
+    <user>
+      <userId>1d2e3f4a-5b6c-4d7e-9f80-a1b2c3d4e5f6</userId>
+      <items>
+        <item>
+          <productName>Notebook Pack</productName>
+          <quantity>3</quantity>
+          <unitPrice>6.00</unitPrice>
+          <totalPrice>18.00</totalPrice>
+        </item>
+      </items>
+      <totalAmount>18.00</totalAmount>
+    </user>
+  </users>
+
+  <summary>
+    <totalOrders>3</totalOrders>
+    <totalAmount>266.99</totalAmount>
+    <orderIds>
+      <orderId>ORD-20260422-001</orderId>
+      <orderId>ORD-20260422-002</orderId>
+      <orderId>ORD-20260422-003</orderId>
+    </orderIds>
+  </summary>
+</BatchClosed>

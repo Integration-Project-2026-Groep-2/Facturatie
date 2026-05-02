@@ -1389,12 +1389,7 @@ class Service implements InjectionAwareInterface
                     $sourceSubtotal += $lineTotal;
 
                     $invoiceItemService->addNew($invoice, [
-                        'title' => sprintf(
-                            '  %s | %s | %s',
-                            $transaction['invoice_serie_nr'],
-                            $sourceItem->title,
-                            $clientIdentity
-                        ),
+                        'title' => (string) $sourceItem->title,
                         'price' => $unitPrice,
                         'quantity' => $quantity,
                         'taxed' => false,
@@ -1417,7 +1412,7 @@ class Service implements InjectionAwareInterface
                 // Keep totals exact (tax/discount/rounding) while still exposing raw line details above.
                 if (abs($adjustment) >= 0.01) {
                     $invoiceItemService->addNew($invoice, [
-                        'title' => sprintf('  %s | tax/adjustment | %s', $transaction['invoice_serie_nr'], $clientIdentity),
+                        'title' => '  Tax/Adjustment',
                         'price' => $adjustment,
                         'quantity' => 1,
                         'taxed' => false,
@@ -1490,6 +1485,8 @@ class Service implements InjectionAwareInterface
 
     public function generateCompanySummaryInvoiceByCompanyId(string $companyId): \Model_Invoice
     {
+        $this->di['logger']->setChannel('application')->info(sprintf('[invoice-service] Starting company summary invoice generation for companyId=%s', $companyId));
+
         $ownerClient = $this->resolveCompanySummaryOwnerClient($companyId);
 
         return $this->generateCompanySummaryInvoiceByClient($ownerClient);
@@ -1502,8 +1499,14 @@ class Service implements InjectionAwareInterface
             throw new InformationException('Client is not linked to a company.');
         }
 
-        $company = $this->di['db']->getRow('SELECT * FROM company WHERE id = :id LIMIT 1', [':id' => $companyId]);
+        $company = $this->di['db']->getRow('SELECT * FROM company WHERE id = :id OR aid = :aid LIMIT 1', [
+            ':id' => $companyId,
+            ':aid' => $companyId,
+        ]);
+
         if (!$company) {
+            $this->di['logger']->setChannel('application')->warn(sprintf('[invoice-service] Linked company not found for companyId=%s', (string) $companyId));
+
             throw new InformationException('Linked company not found.');
         }
 

@@ -42,6 +42,8 @@ class KassaBatchReceiverService
      */
     public function process(string $routingKey, string $xml): string
     {
+        $this->logInfo('[kassa-batch-receiver] Received message for processing');
+
         if ($routingKey !== 'kassa.closed') {
             throw new \InvalidArgumentException(
                 sprintf('Unsupported routing key "%s" for kassa batch receiver.', $routingKey)
@@ -51,10 +53,17 @@ class KassaBatchReceiverService
         $this->ensureBatchTable();
 
         $batch = $this->parseBatchClosed($xml);
+        $this->logInfo(sprintf(
+            '[kassa-batch-receiver] Parsed batch metadata: batchId=%s, closedAt=%s, totalAmount=%.2f, userCount=%d',
+            $batch['batchId'],
+            $batch['closedAt'],
+            $batch['totalAmount'],
+            count($batch['users'])
+        ));
 
         if ($this->isBatchAlreadyProcessed($batch['batchId'])) {
             $this->logWarn(sprintf(
-                '[kassa-batch-receiver] Batch al verwerkt, overgeslagen (batchId=%s)',
+                '[kassa-batch-receiver] Batch already processed, skipping (batchId=%s)',
                 $batch['batchId']
             ));
 
@@ -66,9 +75,8 @@ class KassaBatchReceiverService
         if ($users === []) {
             $this->markBatchAsProcessed($batch['batchId'], 0, 0.0);
             $this->logInfo(sprintf(
-                '[kassa-batch-receiver] Lege batch ontvangen (batchId=%s, closedAt=%s)',
-                $batch['batchId'],
-                $batch['closedAt']
+                '[kassa-batch-receiver] Empty batch or no valid users found (batchId=%s)',
+                $batch['batchId']
             ));
 
             return 'empty-batch';
@@ -79,21 +87,23 @@ class KassaBatchReceiverService
 
         foreach ($users as $userData) {
             $userId = $userData['userId'];
+            $this->logInfo(sprintf('[kassa-batch-receiver] Processing user: %s (batchId=%s)', $userId, $batch['batchId']));
 
             $client = $this->findClientByAid($userId);
             if (!$client instanceof \Model_Client) {
                 $this->logWarn(sprintf(
-                    '[kassa-batch-receiver] Client niet gevonden voor userId=%s (batchId=%s) — overgeslagen',
+                    '[kassa-batch-receiver] Client not found for userId=%s in database (batchId=%s) — skipping user',
                     $userId,
                     $batch['batchId']
                 ));
+
                 continue;
             }
 
             try {
                 $invoiceId = $this->createClientInvoice($client, $userData, $batch['batchId'], $batch['closedAt']);
                 $this->logInfo(sprintf(
-                    '[kassa-batch-receiver] Individuele factuur aangemaakt invoice_id=%d (userId=%s, batchId=%s)',
+                    '[kassa-batch-receiver] Created individual invoice id=%d for userId=%s (batchId=%s)',
                     $invoiceId,
                     $userId,
                     $batch['batchId']
@@ -101,12 +111,13 @@ class KassaBatchReceiverService
 
                 if ($client->company_id !== null && $client->company_id !== '') {
                     $companiesWithNewInvoices[$client->company_id] = true;
+                    $this->logInfo(sprintf('[kassa-batch-receiver] User linked to company %s, queued for summary', (string) $client->company_id));
                 }
 
                 $processedUserCount++;
             } catch (\Throwable $exception) {
                 $this->logError(sprintf(
-                    '[kassa-batch-receiver] Factuur aanmaken mislukt (userId=%s, batchId=%s, exception=%s, message=%s)',
+                    '[kassa-batch-receiver] Failed to create invoice (userId=%s, batchId=%s, exception=%s, message=%s)',
                     $userId,
                     $batch['batchId'],
                     get_class($exception),
@@ -115,14 +126,25 @@ class KassaBatchReceiverService
             }
         }
 
-        foreach (array_keys($companiesWithNewInvoices) as $companyId) {
-            $this->generateCompanySummary((string) $companyId, $batch['batchId']);
+        if ($processedUserCount === 0 && count($users) > 0) {
+            $this->logWarn(sprintf(
+                '[kassa-batch-receiver] NO INVOICES GENERATED: Batch contained %d users but all were skipped or failed (batchId=%s)',
+                count($users),
+                $batch['batchId']
+            ));
+        }
+
+        if ($companiesWithNewInvoices !== []) {
+            $this->logInfo(sprintf('[kassa-batch-receiver] Generating summaries for %d companies', count($companiesWithNewInvoices)));
+            foreach (array_keys($companiesWithNewInvoices) as $companyId) {
+                $this->generateCompanySummary((string) $companyId, $batch['batchId']);
+            }
         }
 
         $this->markBatchAsProcessed($batch['batchId'], $processedUserCount, (float) $batch['totalAmount']);
 
         $this->logInfo(sprintf(
-            '[kassa-batch-receiver] Batch verwerkt (batchId=%s, users=%d, companies=%d)',
+            '[kassa-batch-receiver] Batch processing completed (batchId=%s, users_processed=%d, companies_processed=%d)',
             $batch['batchId'],
             $processedUserCount,
             count($companiesWithNewInvoices)
@@ -334,26 +356,26 @@ class KassaBatchReceiverService
 
         if ($userNodes !== false && $userNodes->length > 0) {
             foreach ($userNodes as $userNode) {
-                $userXpath = new \DOMXPath($userNode->ownerDocument);
-
-                $userId      = trim((string) $userXpath->evaluate('string(userId)', $userNode));
-                $userTotal   = (float) $userXpath->evaluate('string(totalAmount)', $userNode);
+                $userId      = trim((string) $xpath->evaluate('string(userId)', $userNode));
+                $userTotal   = (float) $xpath->evaluate('string(totalAmount)', $userNode);
 
                 if ($userId === '') {
+                    $this->logWarn('[kassa-batch-receiver] Skipping user node without userId');
                     continue;
                 }
 
                 $items = [];
-                $itemNodes = $userXpath->query('items/item', $userNode);
+                $itemNodes = $xpath->query('items/item', $userNode);
 
                 if ($itemNodes !== false) {
                     foreach ($itemNodes as $itemNode) {
-                        $productName = trim((string) $userXpath->evaluate('string(productName)', $itemNode));
-                        $quantity    = (int) $userXpath->evaluate('string(quantity)', $itemNode);
-                        $unitPrice   = (float) $userXpath->evaluate('string(unitPrice)', $itemNode);
-                        $totalPrice  = (float) $userXpath->evaluate('string(totalPrice)', $itemNode);
+                        $productName = trim((string) $xpath->evaluate('string(productName)', $itemNode));
+                        $quantity    = (int) $xpath->evaluate('string(quantity)', $itemNode);
+                        $unitPrice   = (float) $xpath->evaluate('string(unitPrice)', $itemNode);
+                        $totalPrice  = (float) $xpath->evaluate('string(totalPrice)', $itemNode);
 
                         if ($productName === '' || $quantity <= 0) {
+                            $this->logWarn(sprintf('[kassa-batch-receiver] Skipping invalid item for user %s', $userId));
                             continue;
                         }
 
@@ -367,6 +389,7 @@ class KassaBatchReceiverService
                 }
 
                 if ($items === []) {
+                    $this->logWarn(sprintf('[kassa-batch-receiver] No items found for user %s, skipping', $userId));
                     continue;
                 }
 

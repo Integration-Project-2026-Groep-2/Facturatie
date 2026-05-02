@@ -74,12 +74,13 @@ while ($running) {
                     $message->getChannel()->basic_ack($deliveryTag);
                 } catch (\InvalidArgumentException $exception) {
                     $di['logger']->setChannel('application')->err(sprintf(
-                        '[kassa-batch-receiver] Invalid message: XSD/parsing fout (routing_key=%s, delivery_tag=%s, exception=%s, message=%s)',
+                        '[kassa-batch-receiver] REJECTED: XML validation or parsing failed (routing_key=%s, delivery_tag=%s, reason=%s)',
                         $routingKey,
                         (string) $deliveryTag,
-                        get_class($exception),
                         $exception->getMessage()
                     ));
+                    $di['logger']->setChannel('application')->debug(sprintf('[kassa-batch-receiver] Rejected XML payload: %s', substr($body, 0, 1000)));
+
                     $message->getChannel()->basic_ack($deliveryTag);
                 } catch (\Throwable $exception) {
                     $di['logger']->setChannel('application')->err(sprintf(
