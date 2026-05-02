@@ -460,6 +460,9 @@ class KassaBatchReceiverService
 
     private function logInfo(string $message): void
     {
+        if (Environment::isCLI()) {
+            echo "[INFO] " . $message . PHP_EOL;
+        }
         if (isset($this->di['logger'])) {
             $this->di['logger']->setChannel('application')->info($message);
         } else {
@@ -469,6 +472,9 @@ class KassaBatchReceiverService
 
     private function logWarn(string $message): void
     {
+        if (Environment::isCLI()) {
+            echo "[WARN] " . $message . PHP_EOL;
+        }
         if (isset($this->di['logger'])) {
             $this->di['logger']->setChannel('application')->warn($message);
         } else {
@@ -478,6 +484,9 @@ class KassaBatchReceiverService
 
     private function logError(string $message): void
     {
+        if (Environment::isCLI()) {
+            echo "[ERROR] " . $message . PHP_EOL;
+        }
         if (isset($this->di['logger'])) {
             $this->di['logger']->setChannel('application')->err($message);
         } else {
