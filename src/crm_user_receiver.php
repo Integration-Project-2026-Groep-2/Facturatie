@@ -16,6 +16,9 @@ use PhpAmqpLib\Exception\AMQPTimeoutException;
 use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Wire\AMQPTable;
 
+$startTime = time();
+$lastStatusCheck = 0;
+$serviceId = 'crm_user_receiver';
 $running = true;
 
 if (function_exists('pcntl_async_signals')) {
@@ -190,6 +193,25 @@ while ($running) {
 
         if ($rabbit->hasCallbacks()) {
             $rabbit->waitForMessages($waitTimeout);
+        }
+
+        // Status check every 2 minutes
+        if (time() - $lastStatusCheck >= 120) {
+            $uptime = time() - $startTime;
+            
+            // Memory usage (0.0 to 1.0)
+            $memUsage = memory_get_usage(true);
+            $memLimit = (int) ini_get('memory_limit');
+            if ($memLimit <= 0) $memLimit = 128 * 1024 * 1024; // fallback
+            $memory = min(1.0, $memUsage / $memLimit);
+
+            // Disk usage (0.0 to 1.0)
+            $diskTotal = disk_total_space('/') ?: 1;
+            $diskFree = disk_free_space('/') ?: 0;
+            $disk = min(1.0, ($diskTotal - $diskFree) / $diskTotal);
+
+            $rabbit->sendStatusCheck($serviceId, $uptime, $memory, $disk);
+            $lastStatusCheck = time();
         }
     } catch (AMQPTimeoutException) {
         continue;

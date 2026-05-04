@@ -102,6 +102,7 @@ class RabbitMQService
         $root->appendChild($dom->createElement('timestamp', date('c')));
         $root->appendChild($dom->createElement('service', $service));
         $root->appendChild($dom->createElement('data', $message));
+        $dom->appendChild($root);
         $xml = $dom->saveXML() ?: '';
         $this->validateXMLForRoutingKey('routing.log', $xml);
 
@@ -118,6 +119,7 @@ class RabbitMQService
         $root->appendChild($dom->createElement('uptime', (string) $uptime));
         $root->appendChild($dom->createElement('memory', number_format($memory, 2, '.', '')));
         $root->appendChild($dom->createElement('disk', number_format($disk, 2, '.', '')));
+        $dom->appendChild($root);
         $xml = $dom->saveXML() ?: '';
         $this->validateXMLForRoutingKey('routing.statuscheck', $xml);
 
@@ -134,12 +136,7 @@ class RabbitMQService
 
         $this->validateXml($xml, $schemaPath);
 
-        $message = new AMQPMessage($xml, [
-            'content_type' => 'application/xml',
-            'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT,
-        ]);
-
-        $this->getChannel()->basic_publish($message, $this->exchange, $routingKey);
+        $this->publishRaw($this->exchange, $routingKey, $xml);
     }
 
     public function validateXMLForRoutingKey(string $routingKey, string $xml): void
@@ -193,6 +190,14 @@ class RabbitMQService
         ];
         $message = new AMQPMessage($body, $properties + $defaults);
         $this->getChannel()->basic_publish($message, $exchangeName, $routingKey);
+
+        if ($routingKey !== 'routing.log' && $routingKey !== 'routing.statuscheck') {
+            try {
+                $this->logToControlRoom('DEBUG', sprintf('Published message to exchange=%s routing_key=%s', $exchangeName, $routingKey), 'rabbitmq_publisher');
+            } catch (\Throwable) {
+                // Ignore failures to avoid breaking the main publish
+            }
+        }
     }
 
     public function waitForMessages(float $timeoutSeconds = 1.0): void
