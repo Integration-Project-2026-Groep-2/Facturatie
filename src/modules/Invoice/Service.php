@@ -1369,6 +1369,16 @@ class Service implements InjectionAwareInterface
             ]);
 
             foreach ($clientTransactions as $transaction) {
+                $sourceInvoice = $this->di['db']->load('Invoice', (int) $transaction['invoice_id']);
+                if ($sourceInvoice instanceof \Model_Invoice) {
+                    $sourceInvoice->status = \Model_Invoice::STATUS_PAID;
+                    $sourceInvoice->notes = (string) $sourceInvoice->notes . PHP_EOL . sprintf('Summarized in company invoice #%s', $invoice->id);
+                    $sourceInvoice->paid_at = date('Y-m-d H:i:s');
+                    $sourceInvoice->base_income = 0.00;
+                    $sourceInvoice->updated_at = date('Y-m-d H:i:s');
+                    $this->di['db']->store($sourceInvoice);
+                }
+
                 $sourceItems = $this->di['db']->find('InvoiceItem', 'invoice_id = :invoice_id', [
                     ':invoice_id' => (int) $transaction['invoice_id'],
                 ]);
@@ -1564,6 +1574,10 @@ class Service implements InjectionAwareInterface
         $totalAmount = 0.0;
 
         foreach ($rows as $row) {
+            if (self::isCompanySummaryInvoice($row)) {
+                continue;
+            }
+
             $invoiceModel = $this->di['db']->load('Invoice', (int) $row['id']);
             if (!$invoiceModel instanceof \Model_Invoice) {
                 continue;
