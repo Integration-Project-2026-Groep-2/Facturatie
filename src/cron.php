@@ -12,6 +12,7 @@ declare(strict_types=1);
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'load.php';
 
 use FOSSBilling\Environment;
+use FOSSBilling\RabbitMQService;
 use Symfony\Component\Filesystem\Path;
 
 $di = include Path::join(PATH_ROOT, 'di.php');
@@ -22,9 +23,11 @@ try {
     $interval = $argv[1] ?? null;
     $service = $di['mod_service']('cron');
 
+    $serviceId = 'cron';
+
     if (Environment::isCLI()) {
-        echo "\e[33m- Welcome to FOSSBilling.\n";
-        echo "\e[34mLast executed: {$service->getLastExecutionTime()}.\e[0m";
+        $di['logger']->setChannel($serviceId)->info("Welcome to FOSSBilling.");
+        $di['logger']->setChannel($serviceId)->info("Last executed: {$service->getLastExecutionTime()}.");
     }
 
     $service->runCrons($interval);
@@ -32,6 +35,6 @@ try {
     throw new Exception($exception->getMessage(), $exception->getCode(), $exception);
 } finally {
     if (Environment::isCLI()) {
-        echo "\e[32mSuccessfully ran the cron jobs.\e[0m";
+        $di['logger']->setChannel($serviceId)->info("Successfully ran the cron jobs.");
     }
 }

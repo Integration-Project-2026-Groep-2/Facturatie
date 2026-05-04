@@ -70,6 +70,8 @@ class RabbitMQService
             'crm.company.updated' => $defaultUserSchemaPath,
             'crm.company.deactivated' => $defaultUserSchemaPath,
             'kassa.closed' => $defaultKassaBatchSchemaPath,
+            'routing.log' => dirname(__DIR__, 2) . '/data/contracts/logger.xsd',
+            'routing.statuscheck' => dirname(__DIR__, 2) . '/data/contracts/statuscheck.xsd',
         ];
     }
 
@@ -84,6 +86,43 @@ class RabbitMQService
         $dom->appendChild($root);
 
         $this->publishXML($routingKey, $dom->saveXML() ?: '');
+    }
+
+    public function logToControlRoom(string $level, string $message, string $service = 'facturatie'): void
+    {
+        $levels = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'FATAL', 'PANIC'];
+        $level = strtoupper($level);
+        if (!in_array($level, $levels)) {
+            $level = 'INFO';
+        }
+
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $root = $dom->createElement('LogEvent');
+        $root->appendChild($dom->createElement('level', $level));
+        $root->appendChild($dom->createElement('timestamp', date('c')));
+        $root->appendChild($dom->createElement('service', $service));
+        $root->appendChild($dom->createElement('data', $message));
+        $xml = $dom->saveXML() ?: '';
+        $this->validateXMLForRoutingKey('routing.log', $xml);
+
+        $this->declareExchange('logs.direct', 'direct');
+        $this->publishRaw('logs.direct', 'routing.log', $xml);
+    }
+
+    public function sendStatusCheck(string $serviceId, int $uptime, float $memory, float $disk): void
+    {
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $root = $dom->createElement('StatusCheck');
+        $root->appendChild($dom->createElement('serviceId', $serviceId));
+        $root->appendChild($dom->createElement('timestamp', date('c')));
+        $root->appendChild($dom->createElement('uptime', (string) $uptime));
+        $root->appendChild($dom->createElement('memory', number_format($memory, 2, '.', '')));
+        $root->appendChild($dom->createElement('disk', number_format($disk, 2, '.', '')));
+        $xml = $dom->saveXML() ?: '';
+        $this->validateXMLForRoutingKey('routing.statuscheck', $xml);
+
+        $this->declareExchange('statuscheck.direct', 'direct');
+        $this->publishRaw('statuscheck.direct', 'routing.statuscheck', $xml);
     }
 
     public function publishXML(string $routingKey, string $xml): void

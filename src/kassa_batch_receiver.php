@@ -24,12 +24,25 @@ use FOSSBilling\RabbitMQService;
 use PhpAmqpLib\Exception\AMQPTimeoutException;
 use PhpAmqpLib\Message\AMQPMessage;
 
+// Initialize START_TIME and LAST_STATUS_CHECK
+$startTime = time();
+$lastStatusCheck = 0;
+$serviceId = 'kassa_batch_receiver';
+
+// Initialize RabbitMQ for logging
+try {
+    $rabbit = new RabbitMQService();
+} catch (\Throwable $e) {
+    error_log("[FATAL] Could not initialize RabbitMQ for logging: " . $e->getMessage());
+    exit(1);
+}
+
 // DB connectivity check
 try {
     $di['db']->exec('SELECT 1');
-    echo "[DEBUG] Database connection successful." . PHP_EOL;
+    $di['logger']->setChannel($serviceId)->debug("Database connection successful.");
 } catch (\Throwable $e) {
-    echo "[ERROR] Database connection failed: " . $e->getMessage() . PHP_EOL;
+    $di['logger']->setChannel($serviceId)->err("Database connection failed: " . $e->getMessage());
     exit(1);
 }
 
@@ -51,22 +64,21 @@ $prefetch     = max(1,   (int)   (getenv('KASSA_BATCH_PREFETCH')  ?: 1));
 $waitTimeout  = max(0.1, (float) (getenv('KASSA_BATCH_WAIT_TIMEOUT_SEC') ?: 1.0));
 $routingKey   = 'kassa.closed';
 
-$msg = '[kassa-batch-receiver] Starting kassa batch receiver process';
-echo $msg . PHP_EOL;
-$di['logger']->setChannel('application')->info($msg);
+$msg = 'Starting kassa batch receiver process';
+$di['logger']->setChannel($serviceId)->info($msg);
 
 $rabbit = null;
 $receiverService = new KassaBatchReceiverService($di);
 
 while ($running) {
     try {
-        if (!$rabbit instanceof RabbitMQService) {
+        if (!$rabbit instanceof RabbitMQService || !$rabbit->getChannel()->is_open()) {
             $rabbit = new RabbitMQService(['exchange' => $exchange]);
 
             $rabbit->declareAndBindQueue($queue, $routingKey, true);
             $rabbit->setPrefetchCount($prefetch);
 
-            $callback = static function (AMQPMessage $message) use ($rabbit, $receiverService, $di, $routingKey): void {
+            $callback = static function (AMQPMessage $message) use ($rabbit, $receiverService, $di, $routingKey, $serviceId): void {
                 $body        = $message->getBody();
                 $deliveryTag = $message->getDeliveryTag();
 
@@ -76,37 +88,34 @@ while ($running) {
                     $result = $receiverService->process($routingKey, $body);
 
                     $msg = sprintf(
-                        '[kassa-batch-receiver] Processed message (routing_key=%s, result=%s, delivery_tag=%s)',
+                        'Processed message (routing_key=%s, result=%s, delivery_tag=%s)',
                         $routingKey,
                         $result,
                         (string) $deliveryTag
                     );
-                    echo $msg . PHP_EOL;
-                    $di['logger']->setChannel('application')->info($msg);
+                    $di['logger']->setChannel($serviceId)->info($msg);
 
                     $message->getChannel()->basic_ack($deliveryTag);
                 } catch (\InvalidArgumentException $exception) {
                     $msg = sprintf(
-                        '[kassa-batch-receiver] REJECTED: XML validation or parsing failed (routing_key=%s, delivery_tag=%s, reason=%s)',
+                        'REJECTED: XML validation or parsing failed (routing_key=%s, delivery_tag=%s, reason=%s)',
                         $routingKey,
                         (string) $deliveryTag,
                         $exception->getMessage()
                     );
-                    echo "[ERROR] " . $msg . PHP_EOL;
-                    $di['logger']->setChannel('application')->err($msg);
-                    $di['logger']->setChannel('application')->debug(sprintf('[kassa-batch-receiver] Rejected XML payload: %s', substr($body, 0, 1000)));
+                    $di['logger']->setChannel($serviceId)->err($msg);
+                    $di['logger']->setChannel($serviceId)->debug(sprintf('Rejected XML payload: %s', substr($body, 0, 1000)));
 
                     $message->getChannel()->basic_ack($deliveryTag);
                 } catch (\Throwable $exception) {
                     $msg = sprintf(
-                        '[kassa-batch-receiver] Processing failure (routing_key=%s, delivery_tag=%s, exception=%s, message=%s)',
+                        'Processing failure (routing_key=%s, delivery_tag=%s, exception=%s, message=%s)',
                         $routingKey,
                         (string) $deliveryTag,
                         get_class($exception),
                         $exception->getMessage()
                     );
-                    echo "[ERROR] " . $msg . PHP_EOL;
-                    $di['logger']->setChannel('application')->err($msg);
+                    $di['logger']->setChannel($serviceId)->err($msg);
                     $message->getChannel()->basic_nack($deliveryTag, false, false);
                 }
             };
@@ -124,16 +133,34 @@ while ($running) {
         if ($rabbit->hasCallbacks()) {
             $rabbit->waitForMessages($waitTimeout);
         }
+
+        // Status check every 2 minutes
+        if (time() - $lastStatusCheck >= 120) {
+            $uptime = time() - $startTime;
+            
+            // Memory usage (0.0 to 1.0)
+            $memUsage = memory_get_usage(true);
+            $memLimit = (int) ini_get('memory_limit');
+            if ($memLimit <= 0) $memLimit = 128 * 1024 * 1024; // fallback
+            $memory = min(1.0, $memUsage / $memLimit);
+
+            // Disk usage (0.0 to 1.0)
+            $diskTotal = disk_total_space('/') ?: 1;
+            $diskFree = disk_free_space('/') ?: 0;
+            $disk = min(1.0, ($diskTotal - $diskFree) / $diskTotal);
+
+            $rabbit->sendStatusCheck($serviceId, $uptime, $memory, $disk);
+            $lastStatusCheck = time();
+        }
     } catch (AMQPTimeoutException) {
         continue;
     } catch (\Throwable $exception) {
         $msg = sprintf(
-            '[kassa-batch-receiver] Receiver loop error (exception=%s, message=%s)',
+            'Receiver loop error (exception=%s, message=%s)',
             get_class($exception),
             $exception->getMessage()
         );
-        echo "[ERROR] " . $msg . PHP_EOL;
-        $di['logger']->setChannel('application')->err($msg);
+        $di['logger']->setChannel($serviceId)->err($msg);
 
         if ($rabbit instanceof RabbitMQService) {
             $rabbit->close();

@@ -53,6 +53,9 @@ $di['logger'] = function () use ($di) {
     $monolog = new FOSSBilling\Monolog();
     $log->addWriter($monolog);
 
+    $controlRoomWriter = new FOSSBilling\ControlRoomLogWriter();
+    $log->addWriter($controlRoomWriter);
+
     return $log;
 };
 
