@@ -11,12 +11,18 @@
         </xs:restriction>
     </xs:simpleType>
     
+    <xs:simpleType name="ServiceType">
+        <xs:restriction base="xs:string">
+            <xs:enumeration value="facturatie"/>
+        </xs:restriction>
+    </xs:simpleType>
+
     <xs:element name="LogEvent">
         <xs:complexType>
             <xs:sequence>
                 <xs:element name="level" type="SeverityType"/>
                 <xs:element name="timestamp" type="xs:dateTime"/>
-                <xs:element name="service" type="xs:string"/>
+                <xs:element name="service" type="ServiceType"/>
                 <xs:element name="data" type="xs:string"/>
             </xs:sequence>
         </xs:complexType>

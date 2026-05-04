@@ -5,7 +5,7 @@ use FOSSBilling\RabbitMQService;
 try {
     $rabbit = new RabbitMQService();
     echo "Attempting to log to Control Room...\n";
-    $rabbit->logToControlRoom('INFO', 'Test log message', 'test_service');
+    $rabbit->logToControlRoom('INFO', 'Test log message');
     echo "Log attempt finished.\n";
     
     echo "Attempting to send status check...\n";

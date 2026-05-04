@@ -149,8 +149,16 @@ while ($running) {
             $diskFree = disk_free_space('/') ?: 0;
             $disk = min(1.0, ($diskTotal - $diskFree) / $diskTotal);
 
-            $rabbit->sendStatusCheck($serviceId, $uptime, $memory, $disk);
-            $lastStatusCheck = time();
+            try {
+                $rabbit->sendStatusCheck($serviceId, $uptime, $memory, $disk);
+                $lastStatusCheck = time();
+            } catch (\Throwable $statusCheckException) {
+                $di['logger']->setChannel($serviceId)->warn(sprintf(
+                    '[kassa-batch-receiver] Failed to send statuscheck (exception=%s, message=%s)',
+                    get_class($statusCheckException),
+                    $statusCheckException->getMessage()
+                ));
+            }
         }
     } catch (AMQPTimeoutException) {
         continue;

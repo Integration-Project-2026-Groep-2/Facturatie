@@ -12,9 +12,8 @@ class ControlRoomLogWriter
             $rabbit = new RabbitMQService();
             $level = $event['priorityName'] ?? 'INFO';
             $message = $event['message'] ?? '';
-            $service = $channel;
             
-            $rabbit->logToControlRoom($level, $message, $service);
+            $rabbit->logToControlRoom($level, $message);
         } catch (\Throwable) {
             // Silently fail if RabbitMQ is not available to avoid infinite loops or crashes during logging
         }

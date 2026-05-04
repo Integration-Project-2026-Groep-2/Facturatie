@@ -193,7 +193,7 @@ class RabbitMQService
 
         if (!in_array($routingKey, ['routing.log', 'routing.statuscheck', 'routing.heartbeat', 'facturatie.heartbeat'])) {
             try {
-                $this->logToControlRoom('DEBUG', sprintf('Published message to exchange=%s routing_key=%s', $exchangeName, $routingKey), 'rabbitmq_publisher');
+                $this->logToControlRoom('DEBUG', sprintf('Published message to exchange=%s routing_key=%s', $exchangeName, $routingKey));
             } catch (\Throwable) {
                 // Ignore failures to avoid breaking the main publish
             }
