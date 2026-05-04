@@ -191,7 +191,7 @@ class RabbitMQService
         $message = new AMQPMessage($body, $properties + $defaults);
         $this->getChannel()->basic_publish($message, $exchangeName, $routingKey);
 
-        if ($routingKey !== 'routing.log' && $routingKey !== 'routing.statuscheck') {
+        if (!in_array($routingKey, ['routing.log', 'routing.statuscheck', 'routing.heartbeat', 'facturatie.heartbeat'])) {
             try {
                 $this->logToControlRoom('DEBUG', sprintf('Published message to exchange=%s routing_key=%s', $exchangeName, $routingKey), 'rabbitmq_publisher');
             } catch (\Throwable) {
