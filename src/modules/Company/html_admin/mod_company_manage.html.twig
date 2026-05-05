@@ -46,6 +46,12 @@
                 </div>
             </div>
             <div class="mb-3 row">
+                <label class="form-label col-3 col-form-label">{{ 'CRM ID'|trans }}</label>
+                <div class="col">
+                    <input class="form-control" type="text" value="{{ company_entity.aid|default('') }}" data-db-value="{{ company_entity.aid|default('')|e('html_attr') }}" readonly>
+                </div>
+            </div>
+            <div class="mb-3 row">
                 <label class="form-label col-3 col-form-label">{{ 'VAT Number'|trans }}</label>
                 <div class="col">
                     <input class="form-control" type="text" name="vat_number" value="{{ company_entity.vat_number }}" data-db-value="{{ company_entity.vat_number|default('')|e('html_attr') }}" autocomplete="off">
