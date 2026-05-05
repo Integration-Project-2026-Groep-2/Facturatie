@@ -196,8 +196,9 @@ class CrmUserReceiverService
     {
         $status = $payload['isActive'] ? \Model_Client::ACTIVE : \Model_Client::SUSPENDED;
         $companyId = $payload['companyId'];
+        $localCompanyId = $this->resolveLocalCompanyId($companyId);
 
-        if ($companyId !== null && !$this->companyExists($companyId)) {
+        if ($companyId !== null && $localCompanyId === null) {
             $this->logWarn(sprintf(
                 '[crm-user-receiver] Refused user message due to missing company dependency (source=%s, crm_user_id=%s, email=%s, company_id=%s)',
                 $sourceRoutingKey,
@@ -216,7 +217,7 @@ class CrmUserReceiverService
             'phone' => $payload['phone'],
             'status' => $status,
             'type' => 'company',
-            'company_id' => $companyId,
+            'company_id' => $localCompanyId,
             'aid' => (string) $payload['id'],
             'custom_2' => (string) $payload['role'],
             'custom_3' => $payload['badgeCode'],
@@ -240,19 +241,24 @@ class CrmUserReceiverService
         return $data;
     }
 
-    private function companyExists(string $companyId): bool
+    private function resolveLocalCompanyId(?string $companyId): ?string
     {
+        if ($companyId === null) {
+            return null;
+        }
+
         $existingCompanyId = $this->di['db']->getCell('SELECT id FROM company WHERE id = :id OR aid = :aid LIMIT 1', [
             ':id' => $companyId,
             ':aid' => $companyId,
         ]);
-        $exists = $existingCompanyId !== false && $existingCompanyId !== null;
 
-        if (!$exists) {
+        if (!$existingCompanyId) {
             $this->logWarn(sprintf('[crm-user-receiver] Company lookup miss (company_id=%s)', $companyId));
+
+            return null;
         }
 
-        return $exists;
+        return (string) $existingCompanyId;
     }
 
     private function parseConfirmed(string $xml): array
