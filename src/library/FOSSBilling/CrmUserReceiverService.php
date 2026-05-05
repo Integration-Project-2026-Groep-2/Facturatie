@@ -36,14 +36,14 @@ class CrmUserReceiverService
     {
         $payload = $this->parseConfirmed($xml);
 
-        return $this->upsertClient($payload, false);
+        return $this->upsertClient($payload, false, 'crm.user.confirmed');
     }
 
     private function processUpdated(string $xml): string
     {
         $payload = $this->parseUpdated($xml);
 
-        return $this->upsertClient($payload, true);
+        return $this->upsertClient($payload, true, 'crm.user.updated');
     }
 
     private function processDeactivated(string $xml): string
@@ -76,11 +76,12 @@ class CrmUserReceiverService
         return 'deactivated';
     }
 
-    private function upsertClient(array $payload, bool $isUpdateMessage): string
+    private function upsertClient(array $payload, bool $isUpdateMessage, string $sourceRoutingKey): string
     {
         if ($payload['role'] !== self::TARGET_ROLE) {
             $this->logWarn(sprintf(
-                '[crm-user-receiver] Ignored user message due to unsupported role (crm_user_id=%s, email=%s, role=%s, expected_role=%s)',
+                '[crm-user-receiver] Refused user message due to unsupported role (source=%s, crm_user_id=%s, email=%s, role=%s, expected_role=%s)',
+                $sourceRoutingKey,
                 (string) $payload['id'],
                 (string) $payload['email'],
                 (string) $payload['role'],
@@ -92,7 +93,7 @@ class CrmUserReceiverService
 
         $client = $this->findClient((string) $payload['id'], (string) $payload['email']);
         if ($client instanceof \Model_Client) {
-            $this->updateExistingClient($client, $payload, $isUpdateMessage);
+            $this->updateExistingClient($client, $payload, $isUpdateMessage, $sourceRoutingKey);
 
             $this->logInfo(sprintf(
                 '[crm-user-receiver] Updated existing client #%s (crm_user_id=%s, email=%s, source=%s)',
@@ -105,7 +106,7 @@ class CrmUserReceiverService
             return 'updated';
         }
 
-        $this->createClient($payload);
+        $this->createClient($payload, $sourceRoutingKey);
 
         $this->logInfo(sprintf(
             '[crm-user-receiver] Created client from CRM payload (crm_user_id=%s, email=%s, source=%s)',
@@ -135,10 +136,10 @@ class CrmUserReceiverService
         return $client instanceof \Model_Client ? $client : null;
     }
 
-    private function createClient(array $payload): void
+    private function createClient(array $payload, string $sourceRoutingKey): void
     {
         $clientService = $this->di['mod_service']('client');
-        $createData = $this->buildClientWriteData($payload, false);
+        $createData = $this->buildClientWriteData($payload, false, $sourceRoutingKey);
         $createData['password'] = $this->generateStrongPassword();
         $createData['sync_origin'] = 'crm';
         $createData['suppress_user_topic_publish'] = true;
@@ -146,7 +147,7 @@ class CrmUserReceiverService
         $clientService->adminCreateClient($createData);
     }
 
-    private function updateExistingClient(\Model_Client $client, array $payload, bool $isUpdateMessage): void
+    private function updateExistingClient(\Model_Client $client, array $payload, bool $isUpdateMessage, string $sourceRoutingKey): void
     {
         $normalizedEmail = strtolower((string) $payload['email']);
         $conflictingClientId = $this->di['db']->getCell('SELECT id FROM client WHERE email = :email AND id != :id LIMIT 1', [
@@ -165,7 +166,7 @@ class CrmUserReceiverService
             throw new \RuntimeException(sprintf('Cannot update CRM user %s because email %s is already used by client #%s.', $payload['id'], $normalizedEmail, $conflictingClientId));
         }
 
-        $writeData = $this->buildClientWriteData($payload, $isUpdateMessage);
+        $writeData = $this->buildClientWriteData($payload, $isUpdateMessage, $sourceRoutingKey);
 
         $client->email = $normalizedEmail;
         $client->first_name = $writeData['first_name'];
@@ -191,14 +192,15 @@ class CrmUserReceiverService
         $this->di['db']->store($client);
     }
 
-    private function buildClientWriteData(array $payload, bool $isUpdateMessage): array
+    private function buildClientWriteData(array $payload, bool $isUpdateMessage, string $sourceRoutingKey): array
     {
         $status = $payload['isActive'] ? \Model_Client::ACTIVE : \Model_Client::SUSPENDED;
         $companyId = $payload['companyId'];
 
         if ($companyId !== null && !$this->companyExists($companyId)) {
             $this->logWarn(sprintf(
-                '[crm-user-receiver] Missing company dependency for CRM user (crm_user_id=%s, email=%s, company_id=%s)',
+                '[crm-user-receiver] Refused user message due to missing company dependency (source=%s, crm_user_id=%s, email=%s, company_id=%s)',
+                $sourceRoutingKey,
                 (string) $payload['id'],
                 (string) $payload['email'],
                 (string) $companyId

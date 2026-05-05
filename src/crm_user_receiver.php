@@ -136,7 +136,7 @@ while ($running) {
                         ]);
 
                         $di['logger']->setChannel('application')->err(sprintf(
-                            '[crm-user-receiver] Parked message after retries (routing_key=%s, retry_count=%d, max_retries=%d, delivery_tag=%s, missing_company_id=%s)',
+                            '[crm-user-receiver] Refused message permanently after retries (routing_key=%s, reason=missing-company-dependency, retry_count=%d, max_retries=%d, delivery_tag=%s, missing_company_id=%s)',
                             $routingKey,
                             $retryCount,
                             $maxRetryCount,
@@ -162,7 +162,7 @@ while ($running) {
                     ]);
 
                     $di['logger']->setChannel('application')->warn(sprintf(
-                        '[crm-user-receiver] Deferred message for retry (routing_key=%s, retry_count=%d, max_retries=%d, retry_queue=%s, delivery_tag=%s, missing_company_id=%s)',
+                        '[crm-user-receiver] Refused message for now; scheduled retry (routing_key=%s, reason=missing-company-dependency, retry_count=%d, max_retries=%d, retry_queue=%s, delivery_tag=%s, missing_company_id=%s)',
                         $routingKey,
                         $nextRetryCount,
                         $maxRetryCount,

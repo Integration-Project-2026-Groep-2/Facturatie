@@ -143,7 +143,7 @@ class FacturatieUserPublisherService
             'email' => strtolower((string) $client->email),
             'phone' => $this->nullableString($client->phone),
             'role' => $this->normalizeRole($client->custom_2 ?? null),
-            'companyId' => $this->normalizeUuid($client->company_id ?? null),
+            'companyId' => $this->resolveCrmCompanyId($client->company_id ?? null),
             'isActive' => (string) $client->status === \Model_Client::ACTIVE,
             'createdAt' => $this->toIso8601($client->created_at ?? null),
         ];
@@ -163,7 +163,7 @@ class FacturatieUserPublisherService
             'city' => $this->nullableString($client->city),
             'country' => $this->normalizeCountryCode($client->country ?? null),
             'role' => $this->normalizeRole($client->custom_2 ?? null),
-            'companyId' => $this->normalizeUuid($client->company_id ?? null),
+            'companyId' => $this->resolveCrmCompanyId($client->company_id ?? null),
             'isActive' => (string) $client->status === \Model_Client::ACTIVE,
             'updatedAt' => $this->toIso8601($client->updated_at ?? null),
         ];
@@ -270,6 +270,48 @@ class FacturatieUserPublisherService
         }
 
         return $this->normalizeUuid($client->custom_1 ?? null);
+    }
+
+    /**
+     * Resolves the CRM Master UUID for a company from the local company ID.
+     *
+     * Takes a local Facturatie company ID and looks up the associated `aid` field
+     * (which stores the CRM Master UUID from CompanyConfirmed messages).
+     *
+     * @param string|null $localCompanyId The local Facturatie company.id
+     * @return string|null The CRM Master UUID (company.aid) or null if not found/empty
+     */
+    private function resolveCrmCompanyId(?string $localCompanyId): ?string
+    {
+        if (empty($localCompanyId)) {
+            return null;
+        }
+
+        try {
+            $company = $this->di['db']->getRow(
+                'SELECT aid FROM company WHERE id = :id LIMIT 1',
+                [':id' => $localCompanyId]
+            );
+
+            if (!is_array($company) || $company === []) {
+                return null;
+            }
+
+            $aid = $company['aid'] ?? null;
+            if (empty($aid)) {
+                return null;
+            }
+
+            return $this->normalizeUuid($aid);
+        } catch (\Throwable $e) {
+            $this->logWarn(sprintf(
+                '[facturatie-user-publisher] Failed to resolve CRM company ID for local company_id=%s: %s',
+                $localCompanyId,
+                $e->getMessage()
+            ));
+
+            return null;
+        }
     }
 
     private function normalizeRole(?string $value): string
