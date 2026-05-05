@@ -242,10 +242,11 @@ class CrmUserReceiverService
 
     private function companyExists(string $companyId): bool
     {
-        $existingCompanyId = $this->di['db']->getCell('SELECT id FROM company WHERE id = :id LIMIT 1', [
+        $existingCompanyId = $this->di['db']->getCell('SELECT id FROM company WHERE id = :id OR aid = :aid LIMIT 1', [
             ':id' => $companyId,
+            ':aid' => $companyId,
         ]);
-        $exists = (string) $existingCompanyId === $companyId;
+        $exists = $existingCompanyId !== false && $existingCompanyId !== null;
 
         if (!$exists) {
             $this->logWarn(sprintf('[crm-user-receiver] Company lookup miss (company_id=%s)', $companyId));
