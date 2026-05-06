@@ -168,15 +168,14 @@ class ConsumeKassaCommand extends Command
 
             // Stap 2: XML parsen
             $payload = $this->parseXml($body);
-            $orderId    = $payload['orderId'];
-            $userId     = $payload['userId'];
-            $companyId  = $payload['companyId'];
+            $orderId = $payload['orderId'];
+            $userData = $payload['user'];
+            $userId = $userData['userId'];
 
             $output->writeln(sprintf(
-                '<info>[kassa-consumer] Verwerken order=%s user=%s company=%s</info>',
+                '<info>[kassa-consumer] Verwerken order=%s user=%s</info>',
                 $orderId,
-                $userId,
-                $companyId
+                $userId
             ));
 
             // Stap 3: Deduplicatie — al verwerkt?
@@ -191,45 +190,17 @@ class ConsumeKassaCommand extends Command
                 return;
             }
 
-            // Stap 4: Client opzoeken via CRM userId (aid)
+            // Stap 4: Client opzoeken of aanmaken (US-11)
             $client = $this->findClientByAid($userId);
             if (!$client instanceof \Model_Client) {
                 $output->writeln(sprintf(
-                    '<error>[kassa-consumer] Client niet gevonden voor userId=%s | orderId=%s</error>',
-                    $userId,
-                    $orderId
+                    '<comment>[kassa-consumer] Client niet gevonden voor userId=%s. On-demand aanmaken (US-11)...</comment>',
+                    $userId
                 ));
-                $this->logError(sprintf(
-                    '[kassa-consumer] Client niet gevonden (aid=%s, orderId=%s)',
-                    $userId,
-                    $orderId
-                ));
-                $message->getChannel()->basic_ack($deliveryTag);
-
-                return;
+                $client = $this->ensureClientExists($userData);
             }
 
-            // Stap 5: Verifiëren dat client gelinkt is aan het bedrijf
-            if ((string) ($client->company_id ?? '') !== $companyId) {
-                $output->writeln(sprintf(
-                    '<error>[kassa-consumer] Client #%s is niet gelinkt aan companyId=%s | orderId=%s</error>',
-                    $client->id,
-                    $companyId,
-                    $orderId
-                ));
-                $this->logError(sprintf(
-                    '[kassa-consumer] Client-bedrijf mismatch (client_id=%s, client_company_id=%s, expected_company_id=%s, orderId=%s)',
-                    $client->id,
-                    $client->company_id ?? 'null',
-                    $companyId,
-                    $orderId
-                ));
-                $message->getChannel()->basic_ack($deliveryTag);
-
-                return;
-            }
-
-            // Stap 6: Individuele factuur aanmaken voor de client
+            // Stap 5: Individuele factuur aanmaken voor de client
             $invoiceId = $this->createClientInvoice($client, $payload, $orderId);
             $output->writeln(sprintf(
                 '<info>[kassa-consumer] Individuele factuur aangemaakt invoice_id=%d | orderId=%s</info>',
@@ -237,18 +208,8 @@ class ConsumeKassaCommand extends Command
                 $orderId
             ));
 
-            // Stap 7: Bedrijfsfactuur genereren
-            $summaryInvoice = $this->generateCompanySummary($companyId, $orderId, $output);
-
-            // Stap 8: facturatie.invoice.finalized publiceren (indien bedrijfsfactuur gegenereerd)
-            if ($summaryInvoice !== null) {
-                $this->publishInvoiceFinalized($summaryInvoice, $client->email ?? '', $output);
-                $output->writeln(sprintf(
-                    '<info>[kassa-consumer] Bedrijfsfactuur gegenereerd invoice_id=%d | orderId=%s</info>',
-                    $summaryInvoice->id,
-                    $orderId
-                ));
-            }
+            // Stap 6: facturatie.invoice.finalized publiceren
+            $this->publishInvoiceFinalized($this->di['db']->load('Invoice', $invoiceId), $client->email ?? '', $output);
 
             // Stap 9: Opslaan als verwerkt + ACK
             $this->markAsProcessed($orderId, $invoiceId);
@@ -304,15 +265,19 @@ class ConsumeKassaCommand extends Command
      *
      * @return array{
      *   orderId: string,
-     *   userId: string,
-     *   companyId: string,
+     *   user: array{
+     *     userId: string,
+     *     firstName: string,
+     *     lastName: string,
+     *     email: string,
+     *     companyId: string|null,
+     *     badgeCode: string,
+     *     role: string
+     *   },
      *   amount: float,
      *   currency: string,
      *   orderedAt: string,
      *   items: list<array{productName: string, quantity: int, unitPrice: float}>,
-     *   email: string|null,
-     *   companyName: string|null,
-     *   eventId: string|null,
      *   paymentReference: string|null
      * }
      */
@@ -334,11 +299,20 @@ class ConsumeKassaCommand extends Command
 
         // Verplichte velden ophalen
         $orderId   = $this->xpathRequired($xpath, '/InvoiceRequested/orderId');
-        $userId    = $this->xpathRequired($xpath, '/InvoiceRequested/userId');
-        $companyId = $this->xpathRequired($xpath, '/InvoiceRequested/companyId');
         $amount    = (float) $this->xpathRequired($xpath, '/InvoiceRequested/amount');
         $currency  = $this->xpathRequired($xpath, '/InvoiceRequested/currency');
         $orderedAt = $this->xpathRequired($xpath, '/InvoiceRequested/orderedAt');
+
+        // User data (nested)
+        $userData = [
+            'userId'    => $this->xpathRequired($xpath, '/InvoiceRequested/User/userId'),
+            'firstName' => $this->xpathRequired($xpath, '/InvoiceRequested/User/firstName'),
+            'lastName'  => $this->xpathRequired($xpath, '/InvoiceRequested/User/lastName'),
+            'email'     => $this->xpathRequired($xpath, '/InvoiceRequested/User/email'),
+            'companyId' => $this->xpathOptional($xpath, '/InvoiceRequested/User/companyId'),
+            'badgeCode' => $this->xpathRequired($xpath, '/InvoiceRequested/User/badgeCode'),
+            'role'      => $this->xpathRequired($xpath, '/InvoiceRequested/User/role'),
+        ];
 
         // Items verwerken
         $items = [];
@@ -366,15 +340,11 @@ class ConsumeKassaCommand extends Command
 
         return [
             'orderId'          => $orderId,
-            'userId'           => $userId,
-            'companyId'        => $companyId,
+            'user'             => $userData,
             'amount'           => $amount,
             'currency'         => $currency,
             'orderedAt'        => $orderedAt,
             'items'            => $items,
-            'email'            => $this->xpathOptional($xpath, '/InvoiceRequested/email'),
-            'companyName'      => $this->xpathOptional($xpath, '/InvoiceRequested/companyName'),
-            'eventId'          => $this->xpathOptional($xpath, '/InvoiceRequested/eventId'),
             'paymentReference' => $this->xpathOptional($xpath, '/InvoiceRequested/paymentReference'),
         ];
     }
@@ -409,15 +379,11 @@ class ConsumeKassaCommand extends Command
 
         // Notitie met traceerbaarheid toevoegen
         $notes = sprintf(
-            'Kassabestelling | orderId: %s | userId: %s | companyId: %s | orderedAt: %s',
+            'Kassabestelling (US-11 Individual) | orderId: %s | userId: %s | orderedAt: %s',
             $orderId,
-            $payload['userId'],
-            $payload['companyId'],
+            $payload['user']['userId'],
             $payload['orderedAt']
         );
-        if ($payload['eventId'] !== null) {
-            $notes .= sprintf(' | eventId: %s', $payload['eventId']);
-        }
         if ($payload['paymentReference'] !== null) {
             $notes .= sprintf(' | ref: %s', $payload['paymentReference']);
         }
@@ -426,10 +392,34 @@ class ConsumeKassaCommand extends Command
         $invoice->updated_at = date('Y-m-d H:i:s');
         $this->di['db']->store($invoice);
 
-        // Factuur goedkeuren zodat de bedrijfsfactuur hem mee kan nemen
+        // Factuur goedkeuren
         $invoiceService->approveInvoice($invoice, ['id' => $invoice->id]);
 
         return (int) $invoice->id;
+    }
+
+    /**
+     * Zorgt dat een client bestaat in FOSSBilling (on-demand provisioning voor US-11).
+     */
+    private function ensureClientExists(array $userData): \Model_Client
+    {
+        $clientService = $this->di['mod_service']('client');
+        
+        $data = [
+            'email'      => strtolower($userData['email']),
+            'first_name' => $userData['firstName'],
+            'last_name'  => $userData['lastName'],
+            'aid'        => $userData['userId'],
+            'status'     => \Model_Client::ACTIVE,
+            'password'   => bin2hex(random_bytes(8)),
+            'custom_2'   => $userData['role'],
+            'custom_3'   => $userData['badgeCode'],
+        ];
+
+        $clientId = $clientService->adminCreateClient($data);
+        $this->logInfo(sprintf('[kassa-consumer] Client on-demand aangemaakt (id=%d, aid=%s)', $clientId, $userData['userId']));
+
+        return $this->di['db']->load('Client', $clientId);
     }
 
     /**

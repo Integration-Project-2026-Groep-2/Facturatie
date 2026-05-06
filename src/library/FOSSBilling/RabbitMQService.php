@@ -32,6 +32,14 @@ class RabbitMQService
     /** @var array<string, string> */
     private array $schemaPaths;
 
+    /** @var array<string, string> */
+    private array $autoDeclareQueues = [
+        'kassa.invoice.requested' => 'facturatie.kassa.invoice.requested',
+        'crm.user.confirmed'      => 'facturatie.user.confirmed',
+        'crm.user.updated'        => 'facturatie.user.updated',
+        'crm.user.deactivated'    => 'facturatie.user.deactivated',
+    ];
+
     public function __construct(?array $config = null)
     {
         $config ??= [];
@@ -72,6 +80,7 @@ class RabbitMQService
             'kassa.closed' => $defaultKassaBatchSchemaPath,
             'routing.log' => dirname(__DIR__, 2) . '/data/contracts/logger.xsd',
             'routing.statuscheck' => dirname(__DIR__, 2) . '/data/contracts/statuscheck.xsd',
+            'kassa.invoice.requested' => dirname(__DIR__, 2) . '/data/contracts/kassa_invoice_requested.xsd',
         ];
     }
 
@@ -129,6 +138,12 @@ class RabbitMQService
 
     public function publishXML(string $routingKey, string $xml): void
     {
+        // Auto-declare queue if defined for this routing key
+        if (isset($this->autoDeclareQueues[$routingKey])) {
+            $queueName = $this->autoDeclareQueues[$routingKey];
+            $this->declareAndBindQueue($queueName, $routingKey);
+        }
+
         $schemaPath = $this->schemaPaths[$routingKey] ?? null;
         if ($schemaPath === null) {
             throw new \InvalidArgumentException(sprintf('No XML schema configured for routing key "%s".', $routingKey));

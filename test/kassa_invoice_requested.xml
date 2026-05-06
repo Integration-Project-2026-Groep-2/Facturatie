@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<InvoiceRequested>
+    <!-- Uniek ordernummer van de kassa -->
+    <orderId>KAS-2026-000123</orderId>
+    
+    <!-- Gebruikersinformatie (wordt gebruikt voor automatische aanmaak in Facturatie) -->
+    <User>
+        <userId>550e8400-e29b-41d4-a716-446655440000</userId>
+        <firstName>Jan</firstName>
+        <lastName>Janssens</lastName>
+        <email>jan.janssens@example.com</email>
+        <!-- Optioneel: companyId indien de gebruiker gekoppeld moet worden -->
+        <!-- <companyId>880e8400-e29b-41d4-a716-446655441111</companyId> -->
+        <badgeCode>B-999-XYZ</badgeCode>
+        <role>VISITOR</role>
+        <createdAt>2026-05-06T11:00:00Z</createdAt>
+    </User>
+    
+    <!-- Totaalbedrag en valuta -->
+    <amount>32.50</amount>
+    <currency>EUR</currency>
+    
+    <!-- Tijdstip van de bestelling (ISO 8601) -->
+    <orderedAt>2026-05-06T12:45:00+02:00</orderedAt>
+    
+    <!-- Lijst met producten -->
+    <items>
+        <item>
+            <productName>Lunch Menu A</productName>
+            <quantity>2</quantity>
+            <unitPrice>12.50</unitPrice>
+        </item>
+        <item>
+            <productName>Soda 33cl</productName>
+            <quantity>3</quantity>
+            <unitPrice>2.50</unitPrice>
+        </item>
+    </items>
+    
+    <!-- Optionele referentie (bijv. POS terminal ID of transactiecode) -->
+    <paymentReference>POS-TERMINAL-01-TX99</paymentReference>
+</InvoiceRequested>
