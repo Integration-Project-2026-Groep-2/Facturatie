@@ -14,9 +14,6 @@ use FOSSBilling\RabbitMQService;
 use PhpAmqpLib\Exception\AMQPTimeoutException;
 use PhpAmqpLib\Message\AMQPMessage;
 
-$startTime = time();
-$lastStatusCheck = 0;
-$serviceId = 'kassa_invoice_receiver';
 $running = true;
 
 if (function_exists('pcntl_async_signals')) {
@@ -97,41 +94,7 @@ while ($running) {
             $rabbit->waitForMessages($waitTimeout);
         }
 
-        // Status check every 2 minutes
-        if (time() - $lastStatusCheck >= 120) {
-            $uptime = time() - $startTime;
-            
-            // Memory usage (0.0 to 1.0)
-            $memUsage = memory_get_usage(true);
-            $memLimitStr = ini_get('memory_limit');
-            $memLimit = 128 * 1024 * 1024; // Default
-            if ($memLimitStr && $memLimitStr !== '-1') {
-                $unit = strtolower(substr($memLimitStr, -1));
-                $memLimit = (int) $memLimitStr;
-                switch($unit) {
-                    case 'g': $memLimit *= 1024;
-                    case 'm': $memLimit *= 1024;
-                    case 'k': $memLimit *= 1024;
-                }
-            }
-            $memory = min(1.0, $memUsage / $memLimit);
 
-            // Disk usage (0.0 to 1.0)
-            $diskTotal = disk_total_space('/') ?: 1;
-            $diskFree = disk_free_space('/') ?: 0;
-            $disk = min(1.0, ($diskTotal - $diskFree) / $diskTotal);
-
-            try {
-                $rabbit->sendStatusCheck($serviceId, $uptime, $memory, $disk);
-                $lastStatusCheck = time();
-            } catch (\Throwable $statusCheckException) {
-                $di['logger']->setChannel($serviceId)->warn(sprintf(
-                    '[kassa-invoice-receiver] Failed to send statuscheck (exception=%s, message=%s)',
-                    get_class($statusCheckException),
-                    $statusCheckException->getMessage()
-                ));
-            }
-        }
     } catch (AMQPTimeoutException) {
         continue;
     } catch (\Throwable $exception) {
