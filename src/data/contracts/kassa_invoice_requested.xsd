@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           elementFormDefault="unqualified">
+
+  <!-- ============================================================
+       GEDEELDE SIMPLE TYPES
+  ============================================================ -->
+
+  <xs:simpleType name="UUIDType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="ISO8601DateTimeType">
+    <xs:restriction base="xs:dateTime"/>
+  </xs:simpleType>
+
+  <xs:simpleType name="EmailType">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[^@\s]+@[^@\s]+\.[^@\s]+"/>
+      <xs:maxLength value="254"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="NameType">
+    <xs:restriction base="xs:string">
+      <xs:maxLength value="80"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="UserRoleType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="VISITOR"/>
+      <xs:enumeration value="COMPANY_CONTACT"/>
+      <xs:enumeration value="SPEAKER"/>
+      <xs:enumeration value="EVENT_MANAGER"/>
+      <xs:enumeration value="CASHIER"/>
+      <xs:enumeration value="BAR_STAFF"/>
+      <xs:enumeration value="ADMIN"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="CurrencyType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="EUR"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <xs:simpleType name="NonNegativeAmountType">
+    <xs:restriction base="xs:decimal">
+      <xs:minInclusive value="0"/>
+    </xs:restriction>
+  </xs:simpleType>
+
+  <!-- ============================================================
+       GEDEELDE COMPLEX TYPES
+  ============================================================ -->
+
+  <xs:complexType name="OrderItemType">
+    <xs:sequence>
+      <xs:element name="productName" type="xs:string"/>
+      <xs:element name="quantity" type="xs:positiveInteger"/>
+      <xs:element name="unitPrice" type="NonNegativeAmountType"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- ============================================================
+       User Element
+  ============================================================ -->
+  <xs:element name="User">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="userId" type="UUIDType"/>
+        <xs:element name="firstName" type="NameType"/>
+        <xs:element name="lastName" type="NameType"/>
+        <xs:element name="email" type="EmailType"/>
+        <xs:element name="companyId" type="UUIDType" minOccurs="0"/>
+        <xs:element name="badgeCode" type="xs:string"/>
+        <xs:element name="role" type="UserRoleType"/>
+        <xs:element name="createdAt" type="ISO8601DateTimeType" minOccurs="0"/>
+        <xs:element name="updatedAt" type="ISO8601DateTimeType" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- ============================================================
+       CONTRACT K-01 — Kassa → Facturatie: factuurverzoek
+  ============================================================ -->
+  <xs:element name="InvoiceRequested">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="orderId" type="xs:string"/>
+        <xs:element ref="User"/>
+        <xs:element name="amount" type="NonNegativeAmountType"/>
+        <xs:element name="currency" type="CurrencyType"/>
+        <xs:element name="orderedAt" type="ISO8601DateTimeType"/>
+        <xs:element name="items">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="item" type="OrderItemType" minOccurs="1" maxOccurs="unbounded"/>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="paymentReference" type="xs:string" minOccurs="0"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+</xs:schema>
