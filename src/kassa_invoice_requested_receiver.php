@@ -49,14 +49,25 @@ while ($running) {
             $rabbit->setPrefetchCount($prefetchCount);
 
             $callback = static function (AMQPMessage $message) use ($rabbit, $receiverService, $di): void {
-                // Validate and reconnect database if needed (for long-running consumer process)
-                $di['validateDatabaseConnection']();
-
                 $routingKey = (string) $message->getRoutingKey();
                 $body = $message->getBody();
                 $deliveryTag = $message->getDeliveryTag();
 
                 try {
+                    // Validate database connection before processing
+                    try {
+                        $di['validateDatabaseConnection']();
+                    } catch (\PDOException $connException) {
+                        // Connection is stale; NACK to requeue and force restart
+                        $di['logger']->setChannel('application')->warn(sprintf(
+                            '[kassa-invoice-receiver] Stale database connection detected; requeueing message (routing_key=%s, delivery_tag=%s)',
+                            $routingKey,
+                            (string) $deliveryTag
+                        ));
+                        $message->getChannel()->basic_nack($deliveryTag, false, true);
+                        return;
+                    }
+
                     $rabbit->validateXMLForRoutingKey($routingKey, $body);
                     $result = $receiverService->process($routingKey, $body);
 

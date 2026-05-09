@@ -144,35 +144,19 @@ $di['db'] = function () use ($di) {
 };
 
 /*
- * Validates the database connection and reconnects if stale.
- * Call this in long-running processes (consumers) to ensure connection freshness.
+ * Validates the database connection before use.
+ * Throws PDOException if connection is stale/dead.
+ * Call this in long-running processes (consumers) to detect stale connections early.
  *
  * @param void
  *
  * @return void
+ * @throws \PDOException if connection is dead
  */
 $di['validateDatabaseConnection'] = $di->protect(function () use ($di) {
-    try {
-        $pdo = $di['pdo'];
-        // Simple query to test connection; will throw if connection is dead
-        $pdo->query('SELECT 1');
-    } catch (\PDOException $e) {
-        // Connection is dead; force reconnection
-        if (strpos($e->getMessage(), 'server has gone away') !== false || 
-            strpos($e->getMessage(), 'Lost connection') !== false ||
-            strpos($e->getMessage(), 'Connection refused') !== false) {
-            
-            // Clear cached instances
-            unset($di['pdo']);
-            unset($di['db']);
-            
-            // Force reconnection by accessing fresh instances
-            $di['pdo'];
-            $di['db'];
-        } else {
-            throw $e;
-        }
-    }
+    $pdo = $di['pdo'];
+    // Simple query to test connection; will throw PDOException if stale
+    $pdo->query('SELECT 1');
 });
 
 /*
