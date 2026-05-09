@@ -76,6 +76,9 @@ while ($running) {
             $rabbit->setPrefetchCount($prefetch);
 
             $callback = static function (AMQPMessage $message) use ($rabbit, $receiverService, $di, $routingKey, $serviceId): void {
+                // Validate and reconnect database if needed (for long-running consumer process)
+                $di['validateDatabaseConnection']();
+
                 $body        = $message->getBody();
                 $deliveryTag = $message->getDeliveryTag();
 

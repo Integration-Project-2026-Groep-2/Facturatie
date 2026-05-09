@@ -91,6 +91,9 @@ while ($running) {
                 $parkingExchange,
                 $parkingRoutingPrefix
             ): void {
+                // Validate and reconnect database if needed (for long-running consumer process)
+                $di['validateDatabaseConnection']();
+
                 $routingKey = (string) $message->getRoutingKey();
                 $body = $message->getBody();
                 $deliveryTag = $message->getDeliveryTag();
