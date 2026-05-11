@@ -58,13 +58,15 @@ while ($running) {
                     try {
                         $di['validateDatabaseConnection']();
                     } catch (\PDOException $connException) {
-                        // Connection is stale; NACK to requeue and force restart
-                        $di['logger']->setChannel('application')->warn(sprintf(
-                            '[kassa-invoice-receiver] Stale database connection detected; requeueing message (routing_key=%s, delivery_tag=%s)',
+                        // Recovery failed even after refresh attempt in DI
+                        $di['logger']->setChannel('application')->err(sprintf(
+                            '[kassa-invoice-receiver] Persistent database connection failure; requeueing message (routing_key=%s, delivery_tag=%s, message=%s)',
                             $routingKey,
-                            (string) $deliveryTag
+                            (string) $deliveryTag,
+                            $connException->getMessage()
                         ));
                         $message->getChannel()->basic_nack($deliveryTag, false, true);
+                        usleep(1000000); // 1s sleep to avoid tight loop
                         return;
                     }
 

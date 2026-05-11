@@ -145,18 +145,38 @@ $di['db'] = function () use ($di) {
 
 /*
  * Validates the database connection before use.
- * Throws PDOException if connection is stale/dead.
+ * Throws PDOException if connection is stale/dead and cannot be recovered.
  * Call this in long-running processes (consumers) to detect stale connections early.
  *
  * @param void
  *
  * @return void
- * @throws \PDOException if connection is dead
+ * @throws \PDOException if connection is dead and recovery failed
  */
 $di['validateDatabaseConnection'] = $di->protect(function () use ($di) {
-    $pdo = $di['pdo'];
-    // Simple query to test connection; will throw PDOException if stale
-    $pdo->query('SELECT 1');
+    try {
+        $di['pdo']->query('SELECT 1');
+    } catch (\PDOException $e) {
+        $di['logger']->setChannel('application')->warn('[di] Database connection stale, attempting to refresh...');
+        
+        // In Pimple 3.x, we can re-register services by overwriting them.
+        // We use raw() to get the original factory closures.
+        $pdoFactory = $di->raw('pdo');
+        $dbFactory = $di->raw('db');
+
+        // Overwrite the services to force a fresh instantiation on next access
+        $di['pdo'] = $pdoFactory;
+        $di['db'] = $dbFactory;
+
+        // Re-run the validation with the fresh connection
+        try {
+            $di['pdo']->query('SELECT 1');
+            $di['logger']->setChannel('application')->info('[di] Database connection successfully refreshed.');
+        } catch (\PDOException $retryException) {
+            $di['logger']->setChannel('application')->err('[di] Database connection refresh failed: ' . $retryException->getMessage());
+            throw $retryException;
+        }
+    }
 });
 
 /*
