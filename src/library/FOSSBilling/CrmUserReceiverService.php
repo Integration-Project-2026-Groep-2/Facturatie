@@ -188,6 +188,10 @@ class CrmUserReceiverService
             $client->country = $writeData['country'];
         }
 
+        if (empty($client->currency)) {
+            $client->currency = $writeData['currency'];
+        }
+
         $client->updated_at = date('Y-m-d H:i:s');
         $this->di['db']->store($client);
     }
@@ -210,6 +214,14 @@ class CrmUserReceiverService
             throw new MissingCompanyDependencyException($companyId);
         }
 
+        $currencyService = $this->di['mod_service']('Currency');
+        try {
+            $defaultCurrency = $currencyService->getDefault();
+            $currencyCode = $defaultCurrency instanceof \Model_Currency ? $defaultCurrency->code : 'EUR';
+        } catch (\Throwable) {
+            $currencyCode = 'EUR';
+        }
+
         $data = [
             'email' => strtolower((string) $payload['email']),
             'first_name' => (string) $payload['firstName'],
@@ -219,6 +231,7 @@ class CrmUserReceiverService
             'type' => 'company',
             'company_id' => $localCompanyId,
             'aid' => (string) $payload['id'],
+            'currency' => $currencyCode,
             'custom_2' => (string) $payload['role'],
             'custom_3' => $payload['badgeCode'],
             'custom_4' => $payload['gdprConsent'] ? '1' : '0',

@@ -1534,7 +1534,15 @@ class Service implements InjectionAwareInterface
             $clientId = (int) $linkedClient->id;
             $clientCurrency = (string) ($linkedClient->currency ?? '');
             if ($clientCurrency === '') {
-                throw new InformationException(sprintf('Linked client #%s has no currency set.', $clientId));
+                $currencyService = $this->di['mod_service']('Currency');
+                try {
+                    $defaultCurrency = $currencyService->getDefault();
+                    $clientCurrency = $defaultCurrency instanceof \Model_Currency ? $defaultCurrency->code : 'EUR';
+                } catch (\Throwable) {
+                    $clientCurrency = 'EUR';
+                }
+                $linkedClient->currency = $clientCurrency;
+                $this->di['db']->store($linkedClient);
             }
 
             if ($currency === null) {
