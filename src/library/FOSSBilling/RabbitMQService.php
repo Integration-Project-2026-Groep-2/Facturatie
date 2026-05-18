@@ -117,6 +117,13 @@ class RabbitMQService
 
         $this->declareExchange('logs.direct', 'direct');
         $this->publishRaw('logs.direct', 'routing.log', $xml);
+
+        try {
+            $logMessage = sprintf("[%s] [%s] [%s] %s" . PHP_EOL, date('c'), $level, $service, $message);
+            file_put_contents('php://stdout', $logMessage);
+        } catch (\Throwable) {
+            // Ignore logging failures to avoid breaking the application
+        }
     }
 
     public function sendStatusCheck(string $serviceId, int $uptime, float $memory, float $disk): void
